@@ -561,13 +561,11 @@ export default function App() {
         <div className="card square-card square-card-focused">
           <BalanceVisual values={values} balance={balance} currency={currency} t={t}/>
           <div className="square-metrics">
-            <Stat label={t.netWorth} value={amount(balance.equity, currency, true)} note={equityComment} tone={balance.equity >= 0 ? "teal" : "red"}/>
+            <Stat label={t.equity} value={amount(balance.equity, currency, true)} note={equityComment} tone={balance.equity >= 0 ? "teal" : "red"}/>
             <Stat label={t.debtAsset} value={`${balance.debtAsset.toFixed(1)}%`} note={debtAssetComment} tone={debtTone}/>
             <Stat label={t.equityRatio} value={`${balance.equityRatio.toFixed(1)}%`} note={equityRatioComment} tone={equityTone}/>
             <Stat label={t.debtEquity} value={balance.debtEquity === null ? "—" : `${balance.debtEquity.toFixed(2)}×`} note={debtEquityComment} tone={balance.debtEquity !== null && balance.debtEquity <= 0.5 ? "teal" : balance.debtEquity !== null && balance.debtEquity <= 1 ? "gold" : "red"}/>
-            <div className="square-runway">
-              <Stat label={t.runway} value={`${balance.runway.toFixed(1)}`} note={`${t.months} · ${runwayComment}`} tone={balance.runway >= 12 ? "teal" : balance.runway >= 6 ? "gold" : "red"}/>
-            </div>
+            <Stat label={t.runway} value={`${balance.runway.toFixed(1)}`} note={`${t.months} · ${runwayComment}`} tone={balance.runway >= 12 ? "teal" : balance.runway >= 6 ? "gold" : "red"}/>
           </div>
         </div>
         {balance.equity < 0 && <div className="alert"><b>!</b><div><strong>{t.liabilitiesExceed} {amount(-balance.equity, currency)}</strong><p>{t.bankruptcyNote}</p></div></div>}
