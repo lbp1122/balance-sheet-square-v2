@@ -1,14 +1,27 @@
 import { useEffect, useMemo, useState } from "react";
-import { assetKeys, debtKeys, defaultRetirement, defaultValues, scenarios, translations } from "./data.js";
+import { assetKeys, debtKeys, defaultProfile, defaultRetirement, defaultValues, scenarios, translations } from "./data.js";
 import { amount, calculateBalance, calculateRetirement, safeNumber } from "./finance.js";
 import { blobToBase64, createReportPdf, downloadBlob } from "./pdf.js";
 
-const pageOrder = ["home", "square", "assets", "debts", "retirement", "scenarios", "report"];
+const pageOrder = ["home", "profile", "square", "assets", "debts", "retirement", "scenarios", "report"];
 const assetColors = ["#bdf5eb", "#6de1d1", "#28c3b3", "#18968b", "#176f78", "#153f5b"];
 
 function routeFromHash() {
   const route = window.location.hash.replace(/^#\/?/, "");
   return pageOrder.includes(route) ? route : "home";
+}
+
+function ageFromBirthDate(value) {
+  if (!value) return null;
+  const birth = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(birth.getTime())) return null;
+  const today = new Date();
+  let age = today.getFullYear() - birth.getFullYear();
+  const beforeBirthday =
+    today.getMonth() < birth.getMonth() ||
+    (today.getMonth() === birth.getMonth() && today.getDate() < birth.getDate());
+  if (beforeBirthday) age -= 1;
+  return age >= 0 && age <= 110 ? age : null;
 }
 
 function Icon({ name }) {
@@ -147,8 +160,12 @@ function BalanceVisual({ values, balance, currency, t, compact = false }) {
       </div>
       <div className="visual-funding">
         {balance.liabilities > 0 && (
-          <div className="visual-liabilities" style={{ height: `${Math.max(16, balance.liabilityHeight)}%` }}>
-            <div className="visual-label"><span>{t.liabilities}</span><strong>{amount(balance.liabilities, currency, true)}</strong><small>{balance.debtAsset.toFixed(0)}%</small></div>
+          <div className={`visual-liabilities ${balance.debtAsset < 30 ? "compact-funding-label" : ""}`} style={{ height: `${Math.max(12, balance.liabilityHeight)}%` }}>
+            <div className="visual-label">
+              <span>{t.liabilities}</span>
+              <strong>{amount(balance.liabilities, currency, true)}</strong>
+              <small>{balance.debtAsset.toFixed(0)}%</small>
+            </div>
           </div>
         )}
         {balance.equity >= 0 ? (
@@ -207,35 +224,39 @@ function ReportBalanceSquare({ values, balance, currency, t }) {
     : balance.liabilities > 0 ? 100 : 0;
 
   return (
-    <div className="report-balance-square">
-      <section className="report-square-assets">
-        <div className="report-square-title"><span>{t.assetsPage}</span><strong>{amount(balance.assets, currency)}</strong></div>
-        <div className="report-square-list">
-          {assetKeys.map((key) => (
+    <>
+      <div className="report-balance-square">
+        <section className="report-square-assets">
+          <div className="report-square-title"><span>{t.assetsPage}</span><strong>{amount(balance.assets, currency)}</strong></div>
+          <div className="report-square-list">
+            {assetKeys.map((key) => (
+              <div key={key}><span>{t[key]}</span><b>{amount(values[key], currency)}</b></div>
+            ))}
+          </div>
+        </section>
+        <section className="report-square-funding" style={{ "--liability-pct": `${liabilityPct}%` }}>
+          <div className="report-square-divider" aria-hidden="true"/>
+          <div className="report-square-liability-summary">
+            <span>{t.liabilities}</span>
+            <strong>{amount(balance.liabilities, currency)}</strong>
+            <small>{balance.debtAsset.toFixed(1)}%</small>
+          </div>
+          <div className="report-square-equity">
+            <span>{t.equity}</span>
+            <strong>{amount(balance.equity, currency)}</strong>
+            <small>{balance.equityRatio.toFixed(1)}%</small>
+          </div>
+        </section>
+      </div>
+      <section className="report-liability-details">
+        <h3>{t.liabilitiesDetails}</h3>
+        <div className="report-liability-grid">
+          {debtKeys.map((key) => (
             <div key={key}><span>{t[key]}</span><b>{amount(values[key], currency)}</b></div>
           ))}
         </div>
       </section>
-      <section
-        className="report-square-funding"
-        style={{ "--liability-pct": `${liabilityPct}%` }}
-      >
-        <div className="report-square-divider" aria-hidden="true"/>
-        <div className="report-square-liabilities">
-          <div className="report-square-title"><span>{t.liabilities}</span><strong>{amount(balance.liabilities, currency)}</strong></div>
-          <div className="report-square-list">
-            {debtKeys.map((key) => (
-              <div key={key}><span>{t[key]}</span><b>{amount(values[key], currency)}</b></div>
-            ))}
-          </div>
-        </div>
-        <div className="report-square-equity">
-          <span>{t.equity}</span>
-          <strong>{amount(balance.equity, currency)}</strong>
-          <small>{balance.equityRatio.toFixed(1)}%</small>
-        </div>
-      </section>
-    </div>
+    </>
   );
 }
 
@@ -260,6 +281,7 @@ export default function App() {
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [language, setLanguage] = useState("en");
   const [currency, setCurrency] = useState("RM");
+  const [profile, setProfile] = useState(defaultProfile);
   const [values, setValues] = useState(defaultValues);
   const [retirementInput, setRetirementInput] = useState(defaultRetirement);
   const [activeScenario, setActiveScenario] = useState(0);
@@ -274,6 +296,7 @@ export default function App() {
       const savedV2 = JSON.parse(localStorage.getItem("balance-sheet-square-v2"));
       const savedV1 = savedV2 ? null : JSON.parse(localStorage.getItem("balance-sheet-square-v1"));
       const saved = savedV2 || (savedV1 ? { ...savedV1, retirementInput: defaultRetirement } : null);
+      if (saved?.profile) setProfile({ ...defaultProfile, ...saved.profile });
       if (saved?.values) setValues({ ...defaultValues, ...saved.values });
       if (saved?.retirementInput) {
         const savedValues = { ...defaultValues, ...(saved.values || {}) };
@@ -303,8 +326,8 @@ export default function App() {
 
   useEffect(() => {
     if (!hydrated) return;
-    localStorage.setItem("balance-sheet-square-v2", JSON.stringify({ values, retirementInput, language, currency, activeScenario, quarterlyHistory }));
-  }, [values, retirementInput, language, currency, activeScenario, quarterlyHistory, hydrated]);
+    localStorage.setItem("balance-sheet-square-v2", JSON.stringify({ profile, values, retirementInput, language, currency, activeScenario, quarterlyHistory }));
+  }, [profile, values, retirementInput, language, currency, activeScenario, quarterlyHistory, hydrated]);
 
   useEffect(() => {
     const handleHash = () => setPage(routeFromHash());
@@ -320,7 +343,13 @@ export default function App() {
   }, []);
 
   const balance = useMemo(() => calculateBalance(values), [values]);
+  const calculatedAge = useMemo(() => ageFromBirthDate(profile.dateOfBirth), [profile.dateOfBirth]);
   const retirement = useMemo(() => calculateRetirement(retirementInput), [retirementInput]);
+
+  useEffect(() => {
+    if (calculatedAge === null) return;
+    setRetirementInput((current) => ({ ...current, currentAge: String(calculatedAge) }));
+  }, [calculatedAge]);
 
   const navigate = (nextPage) => {
     window.location.hash = `/${nextPage}`;
@@ -331,6 +360,7 @@ export default function App() {
     setValues((current) => ({ ...current, [key]: next }));
     setActiveScenario(-1);
   };
+  const updateProfile = (key, next) => setProfile((current) => ({ ...current, [key]: next }));
   const updateRetirement = (key, next) => {
     if (isFree && ["cashReturn", "investmentReturn", "retirementReturn"].includes(key)) {
       setUpgradeOpen(true);
@@ -388,6 +418,7 @@ export default function App() {
 
   const resetAll = () => {
     if (!window.confirm(t.resetConfirm)) return;
+    setProfile({ ...defaultProfile });
     setValues({ ...defaultValues });
     setRetirementInput({ ...defaultRetirement });
     setActiveScenario(0);
@@ -397,7 +428,7 @@ export default function App() {
   const prepareReport = async (shouldShare) => {
     setActionStatus(t.exporting);
     try {
-      const { pdf, filename } = await createReportPdf({ values, balance, retirement, retirementInput, currency, language, t, edition, quarterlyHistory });
+      const { pdf, filename } = await createReportPdf({ profile, calculatedAge, values, balance, retirement, retirementInput, currency, language, t, edition, quarterlyHistory });
       if (window.AndroidBridge?.sharePdf || window.AndroidBridge?.savePdf) {
         const base64 = await blobToBase64(pdf);
         if (shouldShare && window.AndroidBridge.sharePdf) window.AndroidBridge.sharePdf(base64, filename);
@@ -421,10 +452,10 @@ export default function App() {
   };
 
   const desktopNav = [
-    ["home", t.home], ["square", t.square], ["assets", t.assetsPage], ["debts", t.debtsPage],
+    ["home", t.home], ["profile", t.profilePage], ["square", t.square], ["assets", t.assetsPage], ["debts", t.debtsPage],
     ["retirement", t.retirePage], ["scenarios", t.scenariosPage], ["report", t.reportPage],
   ];
-  const mobileNav = desktopNav.slice(0, 5);
+  const mobileNav = [["home", t.home], ["square", t.square], ["assets", t.assetsPage], ["debts", t.debtsPage], ["retirement", t.retirePage]];
   const debtTone = balance.debtAsset <= 20 ? "teal" : balance.debtAsset <= 50 ? "gold" : "red";
   const equityTone = balance.equityRatio >= 60 ? "teal" : balance.equityRatio >= 30 ? "gold" : "red";
 
@@ -438,6 +469,7 @@ export default function App() {
           <div className="hero-buttons">
             <button className="button light" onClick={() => navigate("assets")}>{t.startSquare}<Icon name="next"/></button>
             <button className="button ghost" onClick={() => navigate("retirement")}>{t.planRetirement}</button>
+            <button className="button ghost" onClick={() => navigate("profile")}>{t.editProfile}</button>
           </div>
         </div>
         <div className="hero-snapshot">
@@ -469,6 +501,22 @@ export default function App() {
         </div>
       </section>
     </>
+  );
+
+  const ProfilePage = () => (
+    <section className="content-section page-section profile-page">
+      <PageHeader eyebrow="00" title={t.profileTitle} hint={t.profileHint} status={<StatusPill tone="teal"><Icon name="lock"/>{t.profileSaved}</StatusPill>}/>
+      <div className="card profile-card">
+        <div className="profile-grid">
+          <label className="profile-field"><span>{t.fullName}</span><input type="text" value={profile.name} onChange={(e) => updateProfile("name", e.target.value)} /></label>
+          <label className="profile-field"><span>{t.dateOfBirth}</span><input type="date" value={profile.dateOfBirth} onChange={(e) => updateProfile("dateOfBirth", e.target.value)} /></label>
+          <div className="profile-field profile-age"><span>{t.calculatedAge}</span><strong>{calculatedAge ?? "—"}</strong></div>
+          <label className="profile-field"><span>{t.sex}</span><select value={profile.sex} onChange={(e) => updateProfile("sex", e.target.value)}><option value="">{t.sexChoose}</option><option value="male">{t.sexMale}</option><option value="female">{t.sexFemale}</option><option value="prefer-not">{t.sexPreferNot}</option></select></label>
+          <label className="profile-field"><span>{t.profession}</span><input type="text" value={profile.profession} onChange={(e) => updateProfile("profession", e.target.value)} /></label>
+        </div>
+      </div>
+      <PageActions t={t} onNavigate={navigate} back="home" next="square"/>
+    </section>
   );
 
   const SquarePage = () => (
@@ -526,7 +574,7 @@ export default function App() {
         <div className="card retirement-inputs">
           <div className="form-card-head"><span className="big-icon blue"><Icon name="retirement"/></span><div><h2>{t.assumptions}</h2><p>{t.saved}</p></div></div>
           <div className="age-grid">
-            <Field label={t.currentAge} value={retirementInput.currentAge} onChange={(next) => updateRetirement("currentAge", next)} max={100}/>
+            <Field label={t.currentAge} value={retirementInput.currentAge} locked={calculatedAge !== null} onLocked={() => navigate("profile")} onChange={(next) => updateRetirement("currentAge", next)} max={100}/>
             <Field label={t.retirementAge} value={retirementInput.retirementAge} onChange={(next) => updateRetirement("retirementAge", next)} max={100}/>
             <Field label={t.planToAge} value={retirementInput.planToAge} onChange={(next) => updateRetirement("planToAge", next)} max={110}/>
           </div>
@@ -591,7 +639,7 @@ export default function App() {
       <PageHeader eyebrow="07" title={t.reportTitle} hint={t.reportHint} status={<StatusPill tone="teal"><Icon name="lock"/>{t.local}</StatusPill>}/>
       <div className="report-layout">
         <div className="report-preview">
-          <div className="report-preview-head"><img src="./app-icon-192.png" alt=""/><div><span>{t.brand}</span><h2>{t.reportTitle}</h2><small>{new Date().toLocaleDateString()}</small></div></div>
+          <div className="report-preview-head"><img src="./app-icon-192.png" alt=""/><div><span>{t.brand}</span><h2>{t.reportTitle}</h2><small>{[profile.name, calculatedAge !== null ? `${t.age} ${calculatedAge}` : "", profile.profession].filter(Boolean).join(" · ") || new Date().toLocaleDateString()}</small></div></div>
           <div className="report-summary"><Stat label={t.totalAssets} value={amount(balance.assets, currency, true)} tone="teal"/><Stat label={t.liabilities} value={amount(balance.liabilities, currency, true)} tone={debtTone}/><Stat label={t.netWorth} value={amount(balance.equity, currency, true)} tone={balance.equity >= 0 ? "blue" : "red"}/></div>
           <ReportBalanceSquare values={values} balance={balance} currency={currency} t={t}/>
           <div className={`report-retirement-shell ${isFree ? "is-free" : ""}`}>
@@ -646,6 +694,7 @@ export default function App() {
 
       <main>
         {page === "home" && HomePage()}
+        {page === "profile" && ProfilePage()}
         {page === "square" && SquarePage()}
         {page === "assets" && EditorPage({ type: "assets" })}
         {page === "debts" && EditorPage({ type: "debts" })}
