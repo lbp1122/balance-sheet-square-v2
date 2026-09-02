@@ -318,7 +318,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
   .app-header { height: 72px; grid-template-columns: auto 1fr; }
   .desktop-nav { display: none; }
   .brand-button,
-  .header-controls { transform: translateY(7px); }
+  .header-controls { transform: translateY(11px); }
   .header-controls { justify-self: end; }
   .home-hero { min-height: auto; grid-template-columns: 1fr; padding-top: 58px; padding-bottom: 58px; }
   .hero-snapshot { max-width: 610px; }
