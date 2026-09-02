@@ -459,13 +459,13 @@ export default function App() {
       </header>
 
       <main>
-        {page === "home" && <HomePage/>}
-        {page === "square" && <SquarePage/>}
-        {page === "assets" && <EditorPage type="assets"/>}
-        {page === "debts" && <EditorPage type="debts"/>}
-        {page === "retirement" && <RetirementPage/>}
-        {page === "scenarios" && <ScenariosPage/>}
-        {page === "report" && <ReportPage/>}
+        {page === "home" && HomePage()}
+        {page === "square" && SquarePage()}
+        {page === "assets" && EditorPage({ type: "assets" })}
+        {page === "debts" && EditorPage({ type: "debts" })}
+        {page === "retirement" && RetirementPage()}
+        {page === "scenarios" && ScenariosPage()}
+        {page === "report" && ReportPage()}
       </main>
 
       <footer className="site-footer"><span>{t.brand}</span><div><span><Icon name="lock"/>{t.local}</span><a href="./privacy.html">{t.privacyPolicy}</a></div></footer>
