@@ -205,6 +205,8 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .field:last-child { border-bottom: 0; }
 .field-label { color: #41536c; font-size: 17px; font-weight: 650; }
 .field-label-row { position: relative; display: flex; align-items: center; gap: 7px; }
+.field-lock { width: 24px; height: 24px; padding: 0; display: inline-grid; place-items: center; border: 0; border-radius: 50%; color: var(--blue); background: var(--blue-light); cursor: pointer; }
+.field-lock .icon { width: 14px; height: 14px; }
 .help-tip { position: relative; display: inline-flex; align-items: center; }
 .help-tip-button { width: 22px; height: 22px; padding: 0; display: inline-grid; place-items: center; border: 1.5px solid #9fb0c5; border-radius: 50%; color: #52647c; background: #fff; cursor: pointer; font-size: 13px; font-weight: 900; line-height: 1; }
 .help-tip-button:hover, .help-tip-button:focus-visible { color: var(--blue); border-color: var(--blue); outline: none; }
@@ -230,6 +232,9 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .age-grid .field-label { display: block; min-height: 42px; margin-bottom: 7px; font-size: 14px; }
 .age-grid .field-control { min-width: 0; }
 .retirement-fields .field { min-height: 68px; }
+.free-assumption-note { margin: 12px 0 2px; padding: 10px 12px; display: flex; align-items: center; gap: 8px; color: #6a5200; background: var(--gold-light); border: 1px solid #ead78f; border-radius: 10px; font-size: 13px; font-weight: 800; }
+.free-assumption-note .icon { width: 16px; height: 16px; }
+.field-control input[readonly] { color: #53647a; cursor: pointer; }
 .inline-link { margin: -2px 0 8px auto; padding: 8px 11px; color: var(--blue); background: var(--blue-light); border: 0; border-radius: 9px; font-size: 13px; font-weight: 780; cursor: pointer; }
 .retirement-results { display: grid; gap: 17px; }
 .plan-banner { min-height: 96px; padding: 20px 24px; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 16px; color: white; border-radius: 20px; box-shadow: 0 15px 34px rgba(24,49,84,.13); }
@@ -282,7 +287,42 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .report-preview-head small { color: var(--muted); }
 .report-summary { margin-top: 35px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
 .report-summary .stat-card { min-height: 145px; }
-.report-retirement { margin-top: 34px; padding: 28px; display: grid; grid-template-columns: 1fr auto; gap: 8px 20px; color: white; background: var(--navy); border-radius: 18px; }
+
+.report-balance-square { margin-top: 28px; display: grid; grid-template-columns: 1fr 1fr; min-height: 480px; overflow: hidden; border: 6px solid var(--navy); border-radius: 16px; background: var(--navy); gap: 6px; }
+.report-square-assets { padding: 24px; background: #dff8f3; }
+.report-square-funding { position: relative; min-height: 0; background: linear-gradient(to bottom, #ffe0dc 0, #ffe0dc var(--liability-pct), #0e6d68 var(--liability-pct), #0e6d68 100%); }
+.report-square-divider { position: absolute; z-index: 1; left: 0; right: 0; top: var(--liability-pct); height: 6px; transform: translateY(-3px); background: var(--navy); }
+.report-square-title { display: flex; justify-content: space-between; gap: 14px; align-items: baseline; }
+.report-square-title span { font-size: 14px; font-weight: 950; text-transform: uppercase; letter-spacing: .08em; }
+.report-square-title strong { font-size: 24px; letter-spacing: -.04em; }
+.report-square-list { margin-top: 20px; display: grid; gap: 10px; }
+.report-square-list > div { padding-bottom: 7px; display: flex; justify-content: space-between; gap: 12px; border-bottom: 1px solid rgba(11,31,58,.12); font-size: 13px; }
+.report-square-list span { font-weight: 650; }
+.report-square-list b { text-align: right; font-variant-numeric: tabular-nums; }
+.report-square-liabilities { position: absolute; z-index: 2; inset: 18px 18px auto; padding: 13px 14px; border-radius: 12px; background: rgba(255,255,255,.82); backdrop-filter: blur(4px); }
+.report-square-equity { position: absolute; z-index: 2; left: 18px; right: 18px; bottom: 18px; padding: 17px; display: grid; grid-template-columns: 1fr auto; gap: 3px 14px; align-items: end; color: white; border-radius: 12px; background: rgba(11,31,58,.24); }
+.report-square-equity span { font-size: 14px; font-weight: 950; text-transform: uppercase; letter-spacing: .08em; }
+.report-square-equity strong { grid-row: 1 / span 2; grid-column: 2; font-size: 28px; letter-spacing: -.04em; }
+.report-square-equity small { font-weight: 800; opacity: .82; }
+
+.report-retirement-shell { position: relative; margin-top: 28px; overflow: hidden; border-radius: 18px; }
+.report-retirement-shell.is-free .report-retirement { filter: blur(10px); transform: scale(1.025); user-select: none; pointer-events: none; }
+.report-upgrade-overlay { position: absolute; z-index: 3; inset: 0; padding: 18px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; color: white; background: rgba(11,31,58,.36); border: 0; cursor: pointer; text-align: center; }
+.report-upgrade-overlay .icon { width: 27px; height: 27px; }
+.report-upgrade-overlay strong { font-size: 21px; }
+.report-upgrade-overlay span { max-width: 400px; font-size: 13px; font-weight: 700; }
+
+.report-retirement { padding: 28px; display: grid; grid-template-columns: 1fr auto; gap: 8px 20px; color: white; background: var(--navy); border-radius: 18px; }
+
+.quarterly-progress { margin-top: 28px; padding: 24px; border: 1px solid var(--line); border-radius: 18px; background: #f8fafc; }
+.quarterly-progress-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
+.quarterly-progress-head h3 { margin: 0; color: var(--navy); font-size: 22px; }
+.quarterly-progress-head p { margin: 5px 0 0; color: var(--muted); font-size: 14px; }
+.quarterly-limit { display: block; margin-top: 12px; color: var(--blue); font-weight: 750; }
+.quarterly-table { margin-top: 16px; display: grid; gap: 1px; overflow: hidden; border: 1px solid var(--line); border-radius: 12px; background: var(--line); }
+.quarterly-row { padding: 11px 12px; display: grid; grid-template-columns: .8fr 1fr 1fr 1fr; gap: 10px; background: white; font-size: 13px; }
+.quarterly-header { color: var(--muted); background: #eef3f8; font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: .04em; }
+.quarterly-empty { margin: 15px 0 0; color: var(--muted); font-size: 14px; }
 .report-retirement span { color: #aebdd3; font-size: 14px; font-weight: 800; text-transform: uppercase; letter-spacing: .07em; }
 .report-retirement strong { grid-column: 1; font-size: 32px; color: var(--teal-bright); }
 .report-retirement b { grid-column: 2; grid-row: 1 / span 2; align-self: center; text-align: right; }
@@ -293,6 +333,13 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .action-status { min-height: 24px; margin-top: 12px; display: block; color: var(--teal); font-size: 14px; font-weight: 750; text-align: center; }
 .privacy-link { margin-top: 18px; padding: 14px 0; display: flex; align-items: center; justify-content: space-between; color: var(--blue); border-top: 1px solid var(--line); text-decoration: none; font-weight: 760; }
 .reset-link { width: 100%; padding: 8px; color: var(--red); background: transparent; border: 0; cursor: pointer; font-size: 14px; font-weight: 720; }
+
+.upgrade-backdrop { position: fixed; z-index: 200; inset: 0; padding: 20px; display: grid; place-items: center; background: rgba(4,18,36,.64); backdrop-filter: blur(5px); }
+.upgrade-modal { width: min(430px, 100%); padding: 30px; text-align: center; background: white; border-radius: 22px; box-shadow: 0 28px 80px rgba(0,0,0,.3); }
+.upgrade-lock { width: 58px; height: 58px; margin: 0 auto 15px; display: grid; place-items: center; color: var(--blue); background: var(--blue-light); border-radius: 18px; }
+.upgrade-lock .icon { width: 28px; height: 28px; }
+.upgrade-modal h2 { margin: 0; color: var(--navy); font-size: 26px; }
+.upgrade-modal p { margin: 10px 0 22px; color: var(--muted); }
 
 .page-actions { margin-top: 42px; padding-top: 24px; display: flex; justify-content: space-between; gap: 16px; border-top: 1px solid var(--line); }
 .site-footer { min-height: 86px; padding: 22px clamp(24px, 6vw, 90px); display: flex; align-items: center; justify-content: space-between; gap: 20px; color: #9eb0c9; background: var(--navy); }
@@ -394,6 +441,10 @@ button, a { -webkit-tap-highlight-color: transparent; }
   .report-preview-head img { width: 58px; height: 58px; }
   .report-summary .stat-card { min-height: 122px; }
   .report-summary .stat-card > strong { font-size: 24px; }
+  .report-balance-square { grid-template-columns: 1fr; min-height: 720px; }
+  .report-square-assets, .report-square-funding { min-height: 350px; }
+  .quarterly-progress-head { flex-direction: column; }
+  .quarterly-row { grid-template-columns: .8fr 1fr 1fr 1fr; font-size: 12px; }
   .report-retirement { grid-template-columns: 1fr; }
   .report-retirement b { grid-column: 1; grid-row: auto; text-align: left; }
   .page-actions .button { min-width: 128px; }
