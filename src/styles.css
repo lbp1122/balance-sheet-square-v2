@@ -153,10 +153,15 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .action-4 .action-icon { color: #805e00; background: var(--gold-light); }
 
 .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); }
-.square-page-grid { display: grid; grid-template-columns: minmax(520px, 1.45fr) minmax(280px, .55fr); gap: 22px; align-items: stretch; }
-.square-card { padding: clamp(22px, 4vw, 46px); }
-.square-sidebar { display: grid; grid-template-columns: 1fr; gap: 14px; }
-.square-sidebar .stat-card { min-height: 0; }
+.square-card { padding: clamp(18px, 3vw, 34px); }
+.square-card-focused { max-width: 980px; margin: 0 auto; }
+.square-metrics { margin-top: 16px; display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 1px; overflow: hidden; border: 1px solid var(--line); border-radius: 16px; background: var(--line); }
+.square-metrics .stat-card { min-height: 132px; border: 0; border-radius: 0; box-shadow: none; }
+.square-metrics .stat-card::before { width: 4px; }
+.square-metrics .stat-card > strong { font-size: clamp(30px, 4vw, 42px); }
+.square-metrics .stat-card > small { font-size: 15px; }
+.square-runway { grid-column: 1 / -1; }
+.square-runway .stat-card { min-height: 118px; }
 .balance-square-block { width: 100%; aspect-ratio: 1 / 1; overflow: hidden; display: flex; flex-direction: column; border: 5px solid var(--navy); border-radius: 12px; background: var(--navy); box-shadow: 0 20px 45px rgba(11,31,58,.16); }
 .balance-visual { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; width: 100%; overflow: hidden; color: var(--navy); background: var(--navy); border: 0; border-radius: 0; gap: 5px; box-shadow: none; }
 .balance-total-bar { display: grid; grid-template-columns: 1fr 1fr; background: var(--navy); border-top: 5px solid var(--navy); gap: 5px; }
@@ -413,8 +418,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
   .home-hero { min-height: auto; grid-template-columns: 1fr; padding-top: 58px; padding-bottom: 58px; }
   .hero-snapshot { max-width: 610px; }
   .hero-snapshot .balance-visual.compact { max-width: 420px; }
-  .square-page-grid, .editor-layout, .retirement-grid, .report-layout { grid-template-columns: 1fr; }
-  .square-sidebar { grid-template-columns: repeat(2, 1fr); }
+  .editor-layout, .retirement-grid, .report-layout { grid-template-columns: 1fr; }
   .guide-card, .report-actions-card { position: static; }
   .retirement-inputs { order: 2; }
   .retirement-results { order: 1; }
@@ -447,13 +451,17 @@ button, a { -webkit-tap-highlight-color: transparent; }
   .page-heading { align-items: flex-start; flex-direction: column; gap: 14px; margin-bottom: 25px; }
   .page-heading h1 { font-size: 39px; }
   .page-heading p { font-size: 17px; }
-  .stats-four, .square-sidebar, .retirement-stats, .report-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .stats-four, .retirement-stats, .report-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .stat-card { min-height: 135px; padding: 18px; }
   .stat-card > strong { font-size: 29px; }
   .stat-top { font-size: 12px; }
   .action-grid { grid-template-columns: 1fr; }
   .action-card { min-height: 94px; }
-  .square-card { padding: 12px; border-radius: 16px; }
+  .square-card { padding: 10px; border-radius: 16px; }
+  .square-metrics { margin-top: 10px; }
+  .square-metrics .stat-card { min-height: 118px; padding: 16px; }
+  .square-metrics .stat-card > strong { font-size: 30px; }
+  .square-metrics .stat-card > small { font-size: 14px; }
   .balance-square-block { border-width: 4px; border-radius: 8px; }
   .balance-visual { gap: 4px; }
   .balance-total-bar { border-top-width: 4px; gap: 4px; }
@@ -507,7 +515,9 @@ button, a { -webkit-tap-highlight-color: transparent; }
   .currency-control select { font-size: 12px; }
   .field { grid-template-columns: 1fr; gap: 6px; padding-block: 12px; }
   .field-control { width: 100%; }
-  .stats-four, .square-sidebar, .retirement-stats, .report-summary { grid-template-columns: 1fr; }
+  .stats-four, .retirement-stats, .report-summary { grid-template-columns: 1fr; }
+  .square-metrics { grid-template-columns: 1fr; }
+  .square-runway { grid-column: 1; }
   .mobile-nav button { font-size: 10px; }
 }
 
