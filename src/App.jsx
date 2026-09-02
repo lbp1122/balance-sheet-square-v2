@@ -222,6 +222,7 @@ function ReportBalanceSquare({ values, balance, currency, t }) {
   const liabilityPct = balance.assets > 0
     ? Math.max(0, Math.min(100, (balance.liabilities / balance.assets) * 100))
     : balance.liabilities > 0 ? 100 : 0;
+  const showLiabilityDetailsInside = liabilityPct >= 34;
 
   return (
     <>
@@ -236,10 +237,19 @@ function ReportBalanceSquare({ values, balance, currency, t }) {
         </section>
         <section className="report-square-funding" style={{ "--liability-pct": `${liabilityPct}%` }}>
           <div className="report-square-divider" aria-hidden="true"/>
-          <div className="report-square-liability-summary">
-            <span>{t.liabilities}</span>
-            <strong>{amount(balance.liabilities, currency)}</strong>
-            <small>{balance.debtAsset.toFixed(1)}%</small>
+          <div className={`report-square-liability-summary ${showLiabilityDetailsInside ? "with-details" : ""}`}>
+            <div className="liability-summary-head">
+              <span>{t.liabilities}</span>
+              <strong>{amount(balance.liabilities, currency)}</strong>
+              <small>{balance.debtAsset.toFixed(1)}%</small>
+            </div>
+            {showLiabilityDetailsInside && (
+              <div className="report-square-liability-list">
+                {debtKeys.map((key) => (
+                  <div key={key}><span>{t[key]}</span><b>{amount(values[key], currency)}</b></div>
+                ))}
+              </div>
+            )}
           </div>
           <div className="report-square-equity">
             <span>{t.equity}</span>
@@ -248,14 +258,16 @@ function ReportBalanceSquare({ values, balance, currency, t }) {
           </div>
         </section>
       </div>
-      <section className="report-liability-details">
-        <h3>{t.liabilitiesDetails}</h3>
-        <div className="report-liability-grid">
-          {debtKeys.map((key) => (
-            <div key={key}><span>{t[key]}</span><b>{amount(values[key], currency)}</b></div>
-          ))}
-        </div>
-      </section>
+      {!showLiabilityDetailsInside && (
+        <section className="report-liability-details">
+          <h3>{t.liabilitiesDetails}</h3>
+          <div className="report-liability-grid">
+            {debtKeys.map((key) => (
+              <div key={key}><span>{t[key]}</span><b>{amount(values[key], currency)}</b></div>
+            ))}
+          </div>
+        </section>
+      )}
     </>
   );
 }
@@ -639,7 +651,7 @@ export default function App() {
       <PageHeader eyebrow="07" title={t.reportTitle} hint={t.reportHint} status={<StatusPill tone="teal"><Icon name="lock"/>{t.local}</StatusPill>}/>
       <div className="report-layout">
         <div className="report-preview">
-          <div className="report-preview-head"><img src="./app-icon-192.png" alt=""/><div><span>{t.brand}</span><h2>{t.reportTitle}</h2><small>{[profile.name, calculatedAge !== null ? `${t.age} ${calculatedAge}` : "", profile.profession].filter(Boolean).join(" · ") || new Date().toLocaleDateString()}</small></div></div>
+          <div className="report-preview-head"><img src="./app-icon-192.png" alt=""/><div><span>{t.brand}</span><h2>{profile.name ? `${profile.name}: ${t.wealthReport}` : t.wealthReport}</h2><small>{t.age}: ${calculatedAge ?? "—"} · ${t.professionLabel}: ${profile.profession || "—"}<br/>{t.asAt} ${new Date().toLocaleDateString(language === "en" ? "en-GB" : language === "ms" ? "ms-MY" : "zh-CN")}</small></div></div>
           <div className="report-summary"><Stat label={t.totalAssets} value={amount(balance.assets, currency, true)} tone="teal"/><Stat label={t.liabilities} value={amount(balance.liabilities, currency, true)} tone={debtTone}/><Stat label={t.netWorth} value={amount(balance.equity, currency, true)} tone={balance.equity >= 0 ? "blue" : "red"}/></div>
           <ReportBalanceSquare values={values} balance={balance} currency={currency} t={t}/>
           <div className={`report-retirement-shell ${isFree ? "is-free" : ""}`}>
