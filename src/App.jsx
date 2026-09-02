@@ -197,8 +197,64 @@ function ProjectionChart({ data, retirementAge, currency }) {
   );
 }
 
+
+function ReportBalanceSquare({ values, balance, currency, t }) {
+  const liabilityPct = balance.assets > 0
+    ? Math.max(0, Math.min(100, (balance.liabilities / balance.assets) * 100))
+    : balance.liabilities > 0 ? 100 : 0;
+
+  return (
+    <div className="report-balance-square">
+      <section className="report-square-assets">
+        <div className="report-square-title"><span>{t.assetsPage}</span><strong>{amount(balance.assets, currency)}</strong></div>
+        <div className="report-square-list">
+          {assetKeys.map((key) => (
+            <div key={key}><span>{t[key]}</span><b>{amount(values[key], currency)}</b></div>
+          ))}
+        </div>
+      </section>
+      <section
+        className="report-square-funding"
+        style={{ "--liability-pct": `${liabilityPct}%` }}
+      >
+        <div className="report-square-divider" aria-hidden="true"/>
+        <div className="report-square-liabilities">
+          <div className="report-square-title"><span>{t.liabilities}</span><strong>{amount(balance.liabilities, currency)}</strong></div>
+          <div className="report-square-list">
+            {debtKeys.map((key) => (
+              <div key={key}><span>{t[key]}</span><b>{amount(values[key], currency)}</b></div>
+            ))}
+          </div>
+        </div>
+        <div className="report-square-equity">
+          <span>{t.equity}</span>
+          <strong>{amount(balance.equity, currency)}</strong>
+          <small>{balance.equityRatio.toFixed(1)}%</small>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function UpgradeModal({ open, t, onClose }) {
+  if (!open) return null;
+  return (
+    <div className="upgrade-backdrop" role="presentation" onClick={onClose}>
+      <div className="upgrade-modal" role="dialog" aria-modal="true" aria-labelledby="upgrade-title" onClick={(event) => event.stopPropagation()}>
+        <span className="upgrade-lock"><Icon name="lock"/></span>
+        <h2 id="upgrade-title">{t.upgradeTitle}</h2>
+        <p>{t.upgradeMessage}</p>
+        <button type="button" className="button primary full" onClick={onClose}>{t.close}</button>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
+  const edition = window.AndroidBridge?.getEdition?.() === "free" ? "free" : "paid";
+  const isFree = edition === "free";
   const [page, setPage] = useState(() => routeFromHash());
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [language, setLanguage] = useState("en");
   const [currency, setCurrency] = useState("RM");
   const [values, setValues] = useState(defaultValues);
@@ -236,11 +292,25 @@ export default function App() {
   }, [values, retirementInput, language, currency, activeScenario, hydrated]);
 
   useEffect(() => {
-    const handleHash = () => setPage(routeFromHash());
+    const handleHash = () => {
+      const nextPage = routeFromHash();
+      if (isFree && nextPage === "retirement") {
+        setUpgradeOpen(true);
+        setPage("home");
+        window.history.replaceState(null, "", "#/home");
+        return;
+      }
+      setPage(nextPage);
+    };
     window.addEventListener("hashchange", handleHash);
     if (!window.location.hash) window.history.replaceState(null, "", "#/home");
+    if (isFree && routeFromHash() === "retirement") {
+      setUpgradeOpen(true);
+      setPage("home");
+      window.history.replaceState(null, "", "#/home");
+    }
     return () => window.removeEventListener("hashchange", handleHash);
-  }, []);
+  }, [isFree]);
 
   useEffect(() => {
     if ("serviceWorker" in navigator && window.location.hostname !== "appassets.androidplatform.net") {
@@ -252,6 +322,10 @@ export default function App() {
   const retirement = useMemo(() => calculateRetirement(retirementInput), [retirementInput]);
 
   const navigate = (nextPage) => {
+    if (isFree && nextPage === "retirement") {
+      setUpgradeOpen(true);
+      return;
+    }
     window.location.hash = `/${nextPage}`;
     setPage(nextPage);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -285,7 +359,7 @@ export default function App() {
   const prepareReport = async (shouldShare) => {
     setActionStatus(t.exporting);
     try {
-      const { pdf, filename } = await createReportPdf({ values, balance, retirement, retirementInput, currency, language, t });
+      const { pdf, filename } = await createReportPdf({ values, balance, retirement, retirementInput, currency, language, t, edition });
       if (window.AndroidBridge?.sharePdf || window.AndroidBridge?.savePdf) {
         const base64 = await blobToBase64(pdf);
         if (shouldShare && window.AndroidBridge.sharePdf) window.AndroidBridge.sharePdf(base64, filename);
@@ -342,7 +416,7 @@ export default function App() {
           <Stat label={t.totalAssets} value={amount(balance.assets, currency, true)} tone="teal" icon="assets"/>
           <Stat label={t.liabilities} value={amount(balance.liabilities, currency, true)} tone={debtTone} icon="debts"/>
           <Stat label={t.netWorth} value={amount(balance.equity, currency, true)} tone={balance.equity >= 0 ? "blue" : "red"} icon="square"/>
-          <Stat label={t.retirePage} value={retirement.onTrack ? t.onTrack : t.needsWork} note={`${t.age} ${retirement.lastsUntil}`} tone={retirement.onTrack ? "teal" : "red"} icon="retirement"/>
+          <Stat label={t.retirePage} value={isFree ? t.paidEdition : (retirement.onTrack ? t.onTrack : t.needsWork)} note={isFree ? t.upgradeMessage : `${t.age} ${retirement.lastsUntil}`} tone={isFree ? "gold" : (retirement.onTrack ? "teal" : "red")} icon="retirement"/>
         </div>
 
         <div className="section-title-row"><div><h2>{t.quickActions}</h2><p>{t.quickHint}</p></div></div>
@@ -480,7 +554,11 @@ export default function App() {
         <div className="report-preview">
           <div className="report-preview-head"><img src="./app-icon-192.png" alt=""/><div><span>{t.brand}</span><h2>{t.reportTitle}</h2><small>{new Date().toLocaleDateString()}</small></div></div>
           <div className="report-summary"><Stat label={t.totalAssets} value={amount(balance.assets, currency, true)} tone="teal"/><Stat label={t.liabilities} value={amount(balance.liabilities, currency, true)} tone={debtTone}/><Stat label={t.netWorth} value={amount(balance.equity, currency, true)} tone={balance.equity >= 0 ? "blue" : "red"}/></div>
-          <div className="report-retirement"><span>{t.retirementTitle}</span><strong>{retirement.onTrack ? t.onTrack : t.needsWork}</strong><b>{t.projectedFund}: {amount(retirement.projectedFund, currency, true)}</b></div>
+          <ReportBalanceSquare values={values} balance={balance} currency={currency} t={t}/>
+          <div className={`report-retirement-shell ${isFree ? "is-free" : ""}`}>
+            <div className="report-retirement"><span>{t.retirementTitle}</span><strong>{retirement.onTrack ? t.onTrack : t.needsWork}</strong><b>{t.projectedFund}: {amount(retirement.projectedFund, currency, true)}</b></div>
+            {isFree && <button type="button" className="report-upgrade-overlay" onClick={() => setUpgradeOpen(true)}><Icon name="lock"/><strong>{t.paidEdition}</strong><span>{t.upgradeMessage}</span></button>}
+          </div>
         </div>
         <aside className="card report-actions-card">
           <span className="big-icon blue"><Icon name="report"/></span><h2>{t.reportPage}</h2><p>{t.reportPrivacy}</p>
@@ -526,6 +604,7 @@ export default function App() {
       <nav className="mobile-nav" aria-label="Mobile navigation">
         {mobileNav.map(([target, label]) => <NavButton key={target} page={target} current={page} label={label} onNavigate={navigate}/>) }
       </nav>
+      <UpgradeModal open={upgradeOpen} t={t} onClose={() => setUpgradeOpen(false)}/>
     </div>
   );
 }
