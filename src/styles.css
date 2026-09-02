@@ -204,6 +204,11 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .field { min-height: 74px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(190px, 240px); align-items: center; gap: 22px; border-bottom: 1px solid #e8edf4; }
 .field:last-child { border-bottom: 0; }
 .field-label { color: #41536c; font-size: 17px; font-weight: 650; }
+.field-label-row { position: relative; display: flex; align-items: center; gap: 7px; }
+.help-tip { position: relative; display: inline-flex; align-items: center; }
+.help-tip-button { width: 22px; height: 22px; padding: 0; display: inline-grid; place-items: center; border: 1.5px solid #9fb0c5; border-radius: 50%; color: #52647c; background: #fff; cursor: pointer; font-size: 13px; font-weight: 900; line-height: 1; }
+.help-tip-button:hover, .help-tip-button:focus-visible { color: var(--blue); border-color: var(--blue); outline: none; }
+.help-tip-popup { position: absolute; z-index: 80; left: 50%; bottom: calc(100% + 8px); width: max-content; max-width: min(260px, 78vw); padding: 8px 10px; transform: translateX(-50%); border-radius: 9px; color: white; background: var(--navy); box-shadow: 0 8px 22px rgba(11,31,58,.22); font-size: 13px; font-weight: 650; line-height: 1.35; white-space: normal; }
 .field-control { min-height: 48px; display: flex; align-items: center; background: #f4f7fb; border: 1px solid #dce4ef; border-radius: 12px; transition: .16s ease; }
 .field-control:focus-within { border-color: var(--blue); background: white; box-shadow: 0 0 0 4px rgba(25,84,209,.1); }
 .field-control b { min-width: 47px; padding-left: 14px; color: #7d8ba0; font-size: 14px; }
