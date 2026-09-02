@@ -150,12 +150,8 @@ function BalanceTotals({ balance, currency, t, report = false }) {
   const fundingTotal = balance.liabilities + balance.equity;
   return (
     <div className={`${report ? "report-" : ""}balance-total-bar`}>
-      <div>
-        <strong>A = {t.totalAssets} = {amount(balance.assets, currency, true)}</strong>
-      </div>
-      <div>
-        <strong>B = {t.liabilities} + {t.equity} = {amount(fundingTotal, currency, true)}</strong>
-      </div>
+      <div><strong>{t.totalAssets} = {amount(balance.assets, currency, true)}</strong></div>
+      <div><strong>{t.totalFunding} = {amount(fundingTotal, currency, true)}</strong></div>
     </div>
   );
 }
@@ -243,7 +239,8 @@ function ReportBalanceSquare({ values, balance, currency, t }) {
 
   return (
     <>
-      <div className="report-balance-square">
+      <div className="report-balance-square-block">
+        <div className="report-balance-square">
         <section className="report-square-assets">
           <div className="report-square-title"><span>{t.assetsPage}</span><strong>{amount(balance.assets, currency)}</strong></div>
           <div className="report-square-list">
@@ -274,8 +271,9 @@ function ReportBalanceSquare({ values, balance, currency, t }) {
             <small>{balance.equityRatio.toFixed(1)}%</small>
           </div>
         </section>
+        </div>
+        <BalanceTotals balance={balance} currency={currency} t={t} report/>
       </div>
-      <BalanceTotals balance={balance} currency={currency} t={t} report/>
       {!showLiabilityDetailsInside && (
         <section className="report-liability-details">
           <h3>{t.liabilitiesDetails}</h3>
@@ -310,7 +308,7 @@ export default function App() {
   const [page, setPage] = useState(() => routeFromHash());
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [language, setLanguage] = useState("en");
-  const [currency, setCurrency] = useState("RM");
+  const [currency, setCurrency] = useState("MYR");
   const [profile, setProfile] = useState(defaultProfile);
   const [values, setValues] = useState(defaultValues);
   const [retirementInput, setRetirementInput] = useState(defaultRetirement);
@@ -319,7 +317,7 @@ export default function App() {
   const [actionStatus, setActionStatus] = useState("");
   const [quarterlyHistory, setQuarterlyHistory] = useState([]);
   const t = translations[language];
-  const currencyPrefix = currency === "RM" ? "RM" : currency === "USD" ? "$" : "¥";
+  const currencyPrefix = currency === "MYR" ? "MYR" : currency === "USD" ? "USD" : "CNY";
 
   useEffect(() => {
     try {
@@ -337,7 +335,8 @@ export default function App() {
         setRetirementInput(migratedRetirement);
       }
       if (translations[saved?.language]) setLanguage(saved.language);
-      if (["RM", "USD", "CNY"].includes(saved?.currency)) setCurrency(saved.currency);
+      if (saved?.currency === "RM") setCurrency("MYR");
+      else if (["MYR", "USD", "CNY"].includes(saved?.currency)) setCurrency(saved.currency);
       if (Number.isInteger(saved?.activeScenario)) setActiveScenario(saved.activeScenario);
       if (Array.isArray(saved?.quarterlyHistory)) setQuarterlyHistory(saved.quarterlyHistory);
     } catch {}
@@ -718,7 +717,7 @@ export default function App() {
           <div className="language-control" aria-label="Language">
             {[["en", "EN"], ["ms", "BM"], ["zh", "中文"]].map(([code, label]) => <button type="button" className={language === code ? "active" : ""} key={code} onClick={() => setLanguage(code)}>{label}</button>)}
           </div>
-          <label className="currency-control"><span className="sr-only">{t.currency}</span><select value={currency} onChange={(event) => setCurrency(event.target.value)}><option value="RM">RM</option><option value="USD">USD</option><option value="CNY">CNY</option></select></label>
+          <label className="currency-control"><span className="sr-only">{t.currency}</span><select value={currency} onChange={(event) => setCurrency(event.target.value)}><option value="MYR">MYR</option><option value="USD">USD</option><option value="CNY">CNY</option></select></label>
         </div>
       </header>
 
