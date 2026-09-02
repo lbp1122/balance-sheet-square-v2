@@ -230,7 +230,10 @@ export default function App() {
     navigate("square");
   };
   const syncRetirement = () => {
-    const linked = safeNumber(values.investments) + safeNumber(values.retirement);
+    const linked =
+      safeNumber(values.cash) +
+      safeNumber(values.investments) +
+      safeNumber(values.retirement);
     setRetirementInput((current) => ({ ...current, currentSavings: String(linked) }));
   };
   const resetAll = () => {
