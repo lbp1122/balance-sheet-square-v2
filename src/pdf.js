@@ -104,15 +104,15 @@ export async function createReportPdf({ profile = {}, calculatedAge = null, valu
 
   context.fillStyle = "#ffffff";
   context.textAlign = "center";
-  context.font = '800 27px system-ui, "Noto Sans", sans-serif';
+  context.font = '850 31px system-ui, "Noto Sans", sans-serif';
   context.fillText(t.brand, width / 2, 56);
-  context.font = '950 52px system-ui, "Noto Sans", sans-serif';
+  context.font = '950 58px system-ui, "Noto Sans", sans-serif';
   const wealthTitle = profile.name ? `${profile.name}: ${t.wealthReport}` : t.wealthReport;
   context.fillText(wealthTitle, width / 2, 122);
   context.fillStyle = "#b9c9e8";
-  context.font = '700 18px system-ui, "Noto Sans", sans-serif';
+  context.font = '750 20px system-ui, "Noto Sans", sans-serif';
   context.fillText(`${t.age}: ${calculatedAge ?? "—"}   ·   ${t.professionLabel}: ${profile.profession || "—"}`, width / 2, 165);
-  context.font = '500 15px system-ui, "Noto Sans", sans-serif';
+  context.font = '550 17px system-ui, "Noto Sans", sans-serif';
   context.fillText(`${t.asAt} ${new Date().toLocaleDateString(language === "en" ? "en-GB" : locale)}`, width / 2, 193);
   context.textAlign = "left";
 
@@ -126,10 +126,10 @@ export async function createReportPdf({ profile = {}, calculatedAge = null, valu
     context.fillStyle = "#ffffff";
     context.fillRect(x, 238, 350, 112);
     context.fillStyle = muted;
-    context.font = '800 14px system-ui, "Noto Sans", sans-serif';
+    context.font = '850 18px system-ui, "Noto Sans", sans-serif';
     context.fillText(label.toUpperCase(), x + 20, 272);
     context.fillStyle = color;
-    context.font = '900 30px system-ui, "Noto Sans", sans-serif';
+    context.font = '900 33px system-ui, "Noto Sans", sans-serif';
     context.fillText(value, x + 20, 318);
   });
 
@@ -166,10 +166,10 @@ export async function createReportPdf({ profile = {}, calculatedAge = null, valu
 
   // Assets details.
   context.fillStyle = navy;
-  context.font = '900 17px system-ui, "Noto Sans", sans-serif';
+  context.font = '900 19px system-ui, "Noto Sans", sans-serif';
   context.fillText(t.assetsPage.toUpperCase(), squareX + 24, squareY + 40);
   context.textAlign = "right";
-  context.font = '900 30px system-ui, "Noto Sans", sans-serif';
+  context.font = '900 38px system-ui, "Noto Sans", sans-serif';
   context.fillText(amount(balance.assets, currency), squareX + half - 28, squareY + 42);
   context.textAlign = "left";
 
@@ -181,10 +181,10 @@ export async function createReportPdf({ profile = {}, calculatedAge = null, valu
     context.lineTo(squareX + half - 24, y + 22);
     context.stroke();
     context.fillStyle = muted;
-    context.font = '700 19px system-ui, "Noto Sans", sans-serif';
+    context.font = '700 21px system-ui, "Noto Sans", sans-serif';
     wrapText(context, t[key], squareX + 24, y, 220, 20, 2);
     context.fillStyle = navy;
-    context.font = '850 19px system-ui, "Noto Sans", sans-serif';
+    context.font = '850 21px system-ui, "Noto Sans", sans-serif';
     context.textAlign = "right";
     context.fillText(amount(safeNumber(values[key]), currency), squareX + half - 24, y);
     context.textAlign = "left";
@@ -198,10 +198,10 @@ export async function createReportPdf({ profile = {}, calculatedAge = null, valu
   context.fillStyle = "rgba(255,255,255,.90)";
   context.fillRect(rightX + 18, squareY + 18, half - 42, showLiabilityDetailsInside ? Math.min(liabilityBoxHeight, 330) : 92);
   context.fillStyle = red;
-  context.font = '900 16px system-ui, "Noto Sans", sans-serif';
+  context.font = '900 20px system-ui, "Noto Sans", sans-serif';
   context.fillText(t.liabilities.toUpperCase(), rightX + 34, squareY + 50);
   context.fillStyle = navy;
-  context.font = '900 27px system-ui, "Noto Sans", sans-serif';
+  context.font = '900 30px system-ui, "Noto Sans", sans-serif';
   context.textAlign = "right";
   context.fillText(amount(balance.liabilities, currency), squareX + squareSize - 28, squareY + 52);
   context.textAlign = "left";
@@ -219,7 +219,7 @@ export async function createReportPdf({ profile = {}, calculatedAge = null, valu
       context.lineTo(squareX + squareSize - 28, y - 17);
       context.stroke();
       context.fillStyle = "#7a4b46";
-      context.font = '700 16px system-ui, "Noto Sans", sans-serif';
+      context.font = '700 18px system-ui, "Noto Sans", sans-serif';
       context.fillText(t[key], rightX + 34, y);
       context.fillStyle = navy;
       context.font = '850 16px system-ui, "Noto Sans", sans-serif';
@@ -237,7 +237,7 @@ export async function createReportPdf({ profile = {}, calculatedAge = null, valu
   context.fillText(t.equity.toUpperCase(), rightX + (half - 3) / 2, equityCenterY - 38);
   context.font = '900 34px system-ui, "Noto Sans", sans-serif';
   context.fillText(amount(balance.equity, currency), rightX + (half - 3) / 2, equityCenterY + 8);
-  context.font = '800 16px system-ui, "Noto Sans", sans-serif';
+  context.font = '800 18px system-ui, "Noto Sans", sans-serif';
   context.fillText(`${balance.equityRatio.toFixed(1)}%`, rightX + (half - 3) / 2, equityCenterY + 38);
   context.textAlign = "left";
 
@@ -254,7 +254,7 @@ export async function createReportPdf({ profile = {}, calculatedAge = null, valu
   context.textAlign = "left";
 
   let progressY = squareY + squareSize + 24;
-  if (!showLiabilityDetailsInside) {
+  if (!showLiabilityDetailsInside && balance.liabilities > 0) {
     const detailY = progressY;
     context.fillStyle = "#fff7f5";
     context.fillRect(64, detailY, 1112, 150);
@@ -277,6 +277,39 @@ export async function createReportPdf({ profile = {}, calculatedAge = null, valu
     });
     progressY = detailY + 170;
   }
+
+  // Key ratios directly beneath the Balance Sheet Square.
+  const ratioY = progressY;
+  const ratioH = 128;
+  const ratioGap = 8;
+  const ratioW = (1112 - ratioGap * 2) / 3;
+  const ratioItems = [
+    [t.equity, amount(balance.equity, currency, true), balance.equity < 0 ? t.attention : balance.equityRatio >= 60 ? t.strong : balance.equityRatio >= 30 ? t.moderate : t.attention],
+    [t.debtAsset, `${balance.debtAsset.toFixed(1)}%`, balance.liabilities === 0 ? t.debtFree : balance.debtAsset <= 35 ? t.strong : balance.debtAsset <= 60 ? t.moderate : t.attention],
+    [t.equityRatio, `${balance.equityRatio.toFixed(1)}%`, balance.equityRatio >= 60 ? t.strong : balance.equityRatio >= 30 ? t.moderate : t.attention],
+    [t.debtEquity, balance.debtEquity === null ? "—" : `${balance.debtEquity.toFixed(2)}×`, balance.liabilities === 0 ? t.debtFree : balance.debtEquity !== null && balance.debtEquity <= 0.5 ? t.strong : balance.debtEquity !== null && balance.debtEquity <= 1 ? t.moderate : t.attention],
+    [t.runway, `${balance.runway.toFixed(1)} ${t.months}`, balance.runway >= 12 ? t.strong : balance.runway >= 6 ? t.moderate : t.attention],
+  ];
+  ratioItems.forEach(([label, value, note], index) => {
+    const row = index < 3 ? 0 : 1;
+    const col = row === 0 ? index : index - 3;
+    const rowCount = row === 0 ? 3 : 2;
+    const itemW = row === 0 ? ratioW : (1112 - ratioGap) / 2;
+    const x = 64 + col * (itemW + ratioGap);
+    const y = ratioY + row * 110;
+    context.fillStyle = "#ffffff";
+    context.fillRect(x, y, itemW, 102);
+    context.fillStyle = muted;
+    context.font = '850 14px system-ui, "Noto Sans", sans-serif';
+    context.fillText(String(label).toUpperCase(), x + 16, y + 26);
+    context.fillStyle = navy;
+    context.font = '900 27px system-ui, "Noto Sans", sans-serif';
+    context.fillText(String(value), x + 16, y + 61);
+    context.fillStyle = muted;
+    context.font = '700 13px system-ui, "Noto Sans", sans-serif';
+    context.fillText(String(note), x + 16, y + 84);
+  });
+  progressY = ratioY + 220;
 
   // progressY is positioned adaptively above.
   context.fillStyle = "#ffffff";
@@ -304,7 +337,7 @@ export async function createReportPdf({ profile = {}, calculatedAge = null, valu
     });
   }
 
-  const retirementY = Math.max(progressY + 150, 1580);
+  const retirementY = Math.max(progressY + 150, 1640);
   const drawRetirement = () => {
     context.fillStyle = navy;
     context.fillRect(64, retirementY, 1112, 112);
