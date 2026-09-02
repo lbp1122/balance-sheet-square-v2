@@ -1,4 +1,4 @@
-name: Build Android app
+name: Build Android apps
 
 on:
   workflow_dispatch:
@@ -36,7 +36,7 @@ jobs:
           node-version: "22"
           cache: npm
 
-      - name: Build and bundle the V2 website
+      - name: Build and bundle the website
         run: |
           npm ci
           npm run sync:android
@@ -52,17 +52,37 @@ jobs:
         with:
           gradle-version: "8.11.1"
 
-      - name: Build debug APK and unsigned release bundle
-        run: gradle -p android-app assembleDebug bundleRelease
+      - name: Build Free and Paid APKs and AABs
+        run: |
+          gradle -p android-app assembleFreeDebug assemblePaidDebug bundleFreeRelease bundlePaidRelease
 
-      - name: Upload debug APK
+      - name: Rename APKs and bundles
+        run: |
+          cp android-app/app/build/outputs/apk/free/debug/app-free-debug.apk balance-sheet-square-free.apk
+          cp android-app/app/build/outputs/apk/paid/debug/app-paid-debug.apk balance-sheet-square-paid.apk
+          cp android-app/app/build/outputs/bundle/freeRelease/app-free-release.aab balance-sheet-square-free.aab
+          cp android-app/app/build/outputs/bundle/paidRelease/app-paid-release.aab balance-sheet-square-paid.aab
+
+      - name: Upload Free APK
         uses: actions/upload-artifact@v4
         with:
-          name: balance-sheet-square-v2-debug-apk
-          path: android-app/app/build/outputs/apk/debug/app-debug.apk
+          name: balance-sheet-square-free-apk
+          path: balance-sheet-square-free.apk
 
-      - name: Upload unsigned release AAB
+      - name: Upload Paid APK
         uses: actions/upload-artifact@v4
         with:
-          name: balance-sheet-square-v2-unsigned-aab
-          path: android-app/app/build/outputs/bundle/release/app-release.aab
+          name: balance-sheet-square-paid-apk
+          path: balance-sheet-square-paid.apk
+
+      - name: Upload Free AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: balance-sheet-square-free-aab
+          path: balance-sheet-square-free.aab
+
+      - name: Upload Paid AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: balance-sheet-square-paid-aab
+          path: balance-sheet-square-paid.aab
