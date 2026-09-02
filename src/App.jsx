@@ -548,25 +548,33 @@ export default function App() {
     </section>
   );
 
-  const SquarePage = () => (
-    <section className="content-section page-section">
-      <PageHeader eyebrow="02" title={t.squareTitle} hint={t.squareHint} status={<StatusPill tone={balance.equity >= 0 ? "teal" : "red"}>{balance.equity >= 0 ? t.balanced : t.insolvent}</StatusPill>}/>
-      <div className="square-page-grid">
-        <div className="card square-card">
+  const SquarePage = () => {
+    const equityComment = balance.equity < 0 ? t.attention : balance.equityRatio >= 60 ? t.strong : balance.equityRatio >= 30 ? t.moderate : t.attention;
+    const debtAssetComment = balance.liabilities === 0 ? t.debtFree : balance.debtAsset <= 35 ? t.strong : balance.debtAsset <= 60 ? t.moderate : t.attention;
+    const equityRatioComment = balance.equityRatio >= 60 ? t.strong : balance.equityRatio >= 30 ? t.moderate : t.attention;
+    const debtEquityComment = balance.liabilities === 0 ? t.debtFree : balance.debtEquity !== null && balance.debtEquity <= 0.5 ? t.strong : balance.debtEquity !== null && balance.debtEquity <= 1 ? t.moderate : t.attention;
+    const runwayComment = balance.runway >= 12 ? t.strong : balance.runway >= 6 ? t.moderate : t.attention;
+
+    return (
+      <section className="content-section page-section">
+        <PageHeader eyebrow="02" title={t.squareTitle} hint={t.squareHint} status={<StatusPill tone={balance.equity >= 0 ? "teal" : "red"}>{balance.equity >= 0 ? t.balanced : t.insolvent}</StatusPill>}/>
+        <div className="card square-card square-card-focused">
           <BalanceVisual values={values} balance={balance} currency={currency} t={t}/>
-          <div className="equation"><span>{t.equation}</span><strong>{amount(balance.assets, currency)} = {amount(balance.liabilities, currency)} + {amount(balance.equity, currency)}</strong></div>
+          <div className="square-metrics">
+            <Stat label={t.netWorth} value={amount(balance.equity, currency, true)} note={equityComment} tone={balance.equity >= 0 ? "teal" : "red"}/>
+            <Stat label={t.debtAsset} value={`${balance.debtAsset.toFixed(1)}%`} note={debtAssetComment} tone={debtTone}/>
+            <Stat label={t.equityRatio} value={`${balance.equityRatio.toFixed(1)}%`} note={equityRatioComment} tone={equityTone}/>
+            <Stat label={t.debtEquity} value={balance.debtEquity === null ? "—" : `${balance.debtEquity.toFixed(2)}×`} note={debtEquityComment} tone={balance.debtEquity !== null && balance.debtEquity <= 0.5 ? "teal" : balance.debtEquity !== null && balance.debtEquity <= 1 ? "gold" : "red"}/>
+            <div className="square-runway">
+              <Stat label={t.runway} value={`${balance.runway.toFixed(1)}`} note={`${t.months} · ${runwayComment}`} tone={balance.runway >= 12 ? "teal" : balance.runway >= 6 ? "gold" : "red"}/>
+            </div>
+          </div>
         </div>
-        <aside className="square-sidebar">
-          <Stat label={t.netWorth} value={amount(balance.equity, currency, true)} note={balance.equity >= 0 ? t.equity : t.insolvent} tone={balance.equity >= 0 ? "teal" : "red"}/>
-          <Stat label={t.debtAsset} value={`${balance.debtAsset.toFixed(1)}%`} note={balance.liabilities === 0 ? t.debtFree : balance.debtAsset <= 35 ? t.strong : balance.debtAsset <= 60 ? t.moderate : t.attention} tone={debtTone}/>
-          <Stat label={t.equityRatio} value={`${balance.equityRatio.toFixed(1)}%`} note={balance.equityRatio >= 60 ? t.strong : balance.equityRatio >= 30 ? t.moderate : t.attention} tone={equityTone}/>
-          <Stat label={t.runway} value={`${balance.runway.toFixed(1)}`} note={t.months} tone={balance.runway >= 12 ? "teal" : balance.runway >= 6 ? "gold" : "red"}/>
-        </aside>
-      </div>
-      {balance.equity < 0 && <div className="alert"><b>!</b><div><strong>{t.liabilitiesExceed} {amount(-balance.equity, currency)}</strong><p>{t.bankruptcyNote}</p></div></div>}
-      <PageActions t={t} onNavigate={navigate} back="home" next="assets"/>
-    </section>
-  );
+        {balance.equity < 0 && <div className="alert"><b>!</b><div><strong>{t.liabilitiesExceed} {amount(-balance.equity, currency)}</strong><p>{t.bankruptcyNote}</p></div></div>}
+        <PageActions t={t} onNavigate={navigate} back="home" next="assets"/>
+      </section>
+    );
+  };
 
   const EditorPage = ({ type }) => {
     const isAssets = type === "assets";
