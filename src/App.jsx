@@ -51,7 +51,7 @@ function HelpTip({ text }) {
           setOpen(true);
         }}
         onBlur={() => setOpen(false)}
-      >❓</button>
+      >?</button>
       {open && <span className="help-tip-popup" role="tooltip">{text}</span>}
     </span>
   );
