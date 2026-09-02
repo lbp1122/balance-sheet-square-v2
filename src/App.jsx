@@ -215,7 +215,14 @@ export default function App() {
       const savedV1 = savedV2 ? null : JSON.parse(localStorage.getItem("balance-sheet-square-v1"));
       const saved = savedV2 || (savedV1 ? { ...savedV1, retirementInput: defaultRetirement } : null);
       if (saved?.values) setValues({ ...defaultValues, ...saved.values });
-      if (saved?.retirementInput) setRetirementInput({ ...defaultRetirement, ...saved.retirementInput });
+      if (saved?.retirementInput) {
+        const savedValues = { ...defaultValues, ...(saved.values || {}) };
+        const migratedRetirement = { ...defaultRetirement, ...saved.retirementInput };
+        if (saved.retirementInput.cashSavings === undefined) migratedRetirement.cashSavings = savedValues.cash;
+        if (saved.retirementInput.investmentSavings === undefined) migratedRetirement.investmentSavings = savedValues.investments;
+        if (saved.retirementInput.retirementSavings === undefined) migratedRetirement.retirementSavings = savedValues.retirement;
+        setRetirementInput(migratedRetirement);
+      }
       if (translations[saved?.language]) setLanguage(saved.language);
       if (["RM", "USD", "CNY"].includes(saved?.currency)) setCurrency(saved.currency);
       if (Number.isInteger(saved?.activeScenario)) setActiveScenario(saved.activeScenario);
@@ -260,11 +267,12 @@ export default function App() {
     navigate("square");
   };
   const syncRetirement = () => {
-    const linked =
-      safeNumber(values.cash) +
-      safeNumber(values.investments) +
-      safeNumber(values.retirement);
-    setRetirementInput((current) => ({ ...current, currentSavings: String(linked) }));
+    setRetirementInput((current) => ({
+      ...current,
+      cashSavings: String(safeNumber(values.cash)),
+      investmentSavings: String(safeNumber(values.investments)),
+      retirementSavings: String(safeNumber(values.retirement)),
+    }));
   };
   const resetAll = () => {
     if (!window.confirm(t.resetConfirm)) return;
@@ -411,11 +419,14 @@ export default function App() {
             <Field label={t.planToAge} value={retirementInput.planToAge} onChange={(next) => updateRetirement("planToAge", next)} max={110}/>
           </div>
           <div className="fields-list retirement-fields">
-            <Field label={t.currentSavings} value={retirementInput.currentSavings} prefix={currencyPrefix} onChange={(next) => updateRetirement("currentSavings", next)}/>
-            <button type="button" className="inline-link" onClick={syncRetirement}>{t.useMyBalance} · {amount(safeNumber(values.investments) + safeNumber(values.retirement), currency)}</button>
+            <Field label={t.cash} value={retirementInput.cashSavings} prefix={currencyPrefix} onChange={(next) => updateRetirement("cashSavings", next)}/>
+            <Field label={t.investments} value={retirementInput.investmentSavings} prefix={currencyPrefix} onChange={(next) => updateRetirement("investmentSavings", next)}/>
+            <Field label={t.retirement} value={retirementInput.retirementSavings} prefix={currencyPrefix} onChange={(next) => updateRetirement("retirementSavings", next)}/>
+            <button type="button" className="inline-link" onClick={syncRetirement}>{t.useMyBalance} · {amount(safeNumber(values.cash) + safeNumber(values.investments) + safeNumber(values.retirement), currency)}</button>
             <Field label={t.monthlyContribution} value={retirementInput.monthlyContribution} prefix={currencyPrefix} onChange={(next) => updateRetirement("monthlyContribution", next)}/>
-            <Field label={t.returnBefore} value={retirementInput.returnBefore} suffix="%" onChange={(next) => updateRetirement("returnBefore", next)} max={30}/>
-            <Field label={t.returnAfter} value={retirementInput.returnAfter} suffix="%" onChange={(next) => updateRetirement("returnAfter", next)} max={30}/>
+            <Field label={t.cashReturn} value={retirementInput.cashReturn} suffix="%" onChange={(next) => updateRetirement("cashReturn", next)} max={30}/>
+            <Field label={t.investmentReturn} value={retirementInput.investmentReturn} suffix="%" onChange={(next) => updateRetirement("investmentReturn", next)} max={30}/>
+            <Field label={t.retirementReturn} value={retirementInput.retirementReturn} suffix="%" onChange={(next) => updateRetirement("retirementReturn", next)} max={30}/>
             <Field label={t.inflation} value={retirementInput.inflation} suffix="%" onChange={(next) => updateRetirement("inflation", next)} max={20}/>
             <Field label={t.monthlySpending} value={retirementInput.monthlySpending} prefix={currencyPrefix} onChange={(next) => updateRetirement("monthlySpending", next)}/>
             <Field label={t.monthlyIncome} help={t.monthlyIncomeHelp} value={retirementInput.monthlyIncome} prefix={currencyPrefix} onChange={(next) => updateRetirement("monthlyIncome", next)}/>
