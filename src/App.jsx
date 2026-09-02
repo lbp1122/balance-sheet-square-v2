@@ -146,36 +146,53 @@ function NavButton({ page, current, label, onNavigate }) {
   );
 }
 
+function BalanceTotals({ balance, currency, t, report = false }) {
+  const fundingTotal = balance.liabilities + balance.equity;
+  return (
+    <div className={`${report ? "report-" : ""}balance-total-bar`}>
+      <div>
+        <strong>A = {t.totalAssets} = {amount(balance.assets, currency, true)}</strong>
+      </div>
+      <div>
+        <strong>B = {t.liabilities} + {t.equity} = {amount(fundingTotal, currency, true)}</strong>
+      </div>
+    </div>
+  );
+}
+
 function BalanceVisual({ values, balance, currency, t, compact = false }) {
   return (
-    <div className={`balance-visual ${compact ? "compact" : ""} ${balance.equity < 0 ? "negative" : ""}`}>
-      <div className="visual-assets">
-        <div className="visual-label"><span>{t.assetsPage}</span><strong>{amount(balance.assets, currency, true)}</strong><small>100%</small></div>
-        <div className="asset-mix" aria-label={t.assetMix}>
-          {assetKeys.map((key, index) => {
-            const width = balance.assets ? safeNumber(values[key]) / balance.assets * 100 : 16.6;
-            return <i key={key} style={{ width: `${width}%`, background: assetColors[index] }} title={`${t[key]}: ${amount(values[key], currency)}`}/>;
-          })}
+    <div className={`balance-square-block ${compact ? "compact" : ""}`}>
+      <div className={`balance-visual ${compact ? "compact" : ""} ${balance.equity < 0 ? "negative" : ""}`}>
+        <div className="visual-assets">
+          <div className="visual-label"><span>{t.assetsPage}</span><strong>{amount(balance.assets, currency, true)}</strong><small>100%</small></div>
+          <div className="asset-mix" aria-label={t.assetMix}>
+            {assetKeys.map((key, index) => {
+              const width = balance.assets ? safeNumber(values[key]) / balance.assets * 100 : 16.6;
+              return <i key={key} style={{ width: `${width}%`, background: assetColors[index] }} title={`${t[key]}: ${amount(values[key], currency)}`}/>;
+            })}
+          </div>
+        </div>
+        <div className="visual-funding">
+          {balance.liabilities > 0 && (
+            <div className={`visual-liabilities ${balance.debtAsset < 30 ? "compact-funding-label" : ""}`} style={{ height: `${Math.max(12, balance.liabilityHeight)}%` }}>
+              <div className="visual-label">
+                <span>{t.liabilities}</span>
+                <strong>{amount(balance.liabilities, currency, true)}</strong>
+                <small>{balance.debtAsset.toFixed(0)}%</small>
+              </div>
+            </div>
+          )}
+          {balance.equity >= 0 ? (
+            <div className="visual-equity">
+              <div className="visual-label"><span>{t.equity}</span><strong>{amount(balance.equity, currency, true)}</strong><small>{balance.equityRatio.toFixed(0)}%</small></div>
+            </div>
+          ) : (
+            <div className="visual-negative"><span>{t.insolvent}</span><strong>{amount(balance.equity, currency, true)}</strong></div>
+          )}
         </div>
       </div>
-      <div className="visual-funding">
-        {balance.liabilities > 0 && (
-          <div className={`visual-liabilities ${balance.debtAsset < 30 ? "compact-funding-label" : ""}`} style={{ height: `${Math.max(12, balance.liabilityHeight)}%` }}>
-            <div className="visual-label">
-              <span>{t.liabilities}</span>
-              <strong>{amount(balance.liabilities, currency, true)}</strong>
-              <small>{balance.debtAsset.toFixed(0)}%</small>
-            </div>
-          </div>
-        )}
-        {balance.equity >= 0 ? (
-          <div className="visual-equity">
-            <div className="visual-label"><span>{t.equity}</span><strong>{amount(balance.equity, currency, true)}</strong><small>{balance.equityRatio.toFixed(0)}%</small></div>
-          </div>
-        ) : (
-          <div className="visual-negative"><span>{t.insolvent}</span><strong>{amount(balance.equity, currency, true)}</strong></div>
-        )}
-      </div>
+      <BalanceTotals balance={balance} currency={currency} t={t}/>
     </div>
   );
 }
@@ -258,6 +275,7 @@ function ReportBalanceSquare({ values, balance, currency, t }) {
           </div>
         </section>
       </div>
+      <BalanceTotals balance={balance} currency={currency} t={t} report/>
       {!showLiabilityDetailsInside && (
         <section className="report-liability-details">
           <h3>{t.liabilitiesDetails}</h3>
