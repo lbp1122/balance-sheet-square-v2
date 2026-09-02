@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <style>
+      * { box-sizing: border-box; }
+      body { min-height: 100vh; margin: 0; display: grid; place-items: center; padding: 28px; color: #10243f; background: #f4f7fb; font-family: system-ui, sans-serif; }
+      main { max-width: 520px; padding: 36px; border: 1px solid #dce3ee; border-radius: 22px; background: #fff; box-shadow: 0 16px 45px rgba(24,49,84,.09); }
+      .mark { width: 68px; height: 68px; display: grid; grid-template-columns: 1fr 1fr; border: 5px solid #0b1f3a; border-radius: 17px; background: #f6c344; overflow: hidden; }
+      .mark span:first-child { background: #fff1a4; }
+      .mark span:last-child { margin-top: 42%; background: #1954d1; }
+      h1 { margin: 26px 0 12px; font: 900 40px/1.04 system-ui, sans-serif; letter-spacing: -.045em; }
+      p { color: #65748b; font-size: 17px; line-height: 1.65; }
+      button { min-height: 52px; margin-top: 12px; padding: 12px 20px; color: white; background: #1954d1; border: 0; border-radius: 13px; font: 800 16px system-ui, sans-serif; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="mark" aria-hidden="true"><span></span><span></span></div>
+      <h1>Unable to open the calculator</h1>
+      <p>The calculator is included inside the app and normally works without an internet connection. Close and reopen the app. If this message continues, reinstall the app.</p>
+      <button type="button" onclick="location.reload()">Try again</button>
+    </main>
+  </body>
+</html>
