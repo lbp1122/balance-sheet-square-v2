@@ -30,7 +30,34 @@ function Icon({ name }) {
   return <svg className="icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">{icons[name] || icons.square}</svg>;
 }
 
-function Field({ label, value, prefix, suffix, onChange, min = 0, max }) {
+function HelpTip({ text }) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <span className="help-tip">
+      <button
+        type="button"
+        className="help-tip-button"
+        aria-label={text}
+        aria-expanded={open}
+        onClick={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          setOpen((current) => !current);
+        }}
+        onContextMenu={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          setOpen(true);
+        }}
+        onBlur={() => setOpen(false)}
+      >❓</button>
+      {open && <span className="help-tip-popup" role="tooltip">{text}</span>}
+    </span>
+  );
+}
+
+function Field({ label, help, value, prefix, suffix, onChange, min = 0, max }) {
   const cleanInput = (rawValue) => {
     const sanitized = rawValue.replace(/[^0-9.]/g, "");
     const [whole = "", ...decimals] = sanitized.split(".");
@@ -39,7 +66,10 @@ function Field({ label, value, prefix, suffix, onChange, min = 0, max }) {
 
   return (
     <label className="field">
-      <span className="field-label">{label}</span>
+      <span className="field-label-row">
+        <span className="field-label">{label}</span>
+        {help && <HelpTip text={help}/>}
+      </span>
       <span className="field-control">
         {prefix && <b>{prefix}</b>}
         <input
@@ -388,7 +418,7 @@ export default function App() {
             <Field label={t.returnAfter} value={retirementInput.returnAfter} suffix="%" onChange={(next) => updateRetirement("returnAfter", next)} max={30}/>
             <Field label={t.inflation} value={retirementInput.inflation} suffix="%" onChange={(next) => updateRetirement("inflation", next)} max={20}/>
             <Field label={t.monthlySpending} value={retirementInput.monthlySpending} prefix={currencyPrefix} onChange={(next) => updateRetirement("monthlySpending", next)}/>
-            <Field label={t.monthlyIncome} value={retirementInput.monthlyIncome} prefix={currencyPrefix} onChange={(next) => updateRetirement("monthlyIncome", next)}/>
+            <Field label={t.monthlyIncome} help={t.monthlyIncomeHelp} value={retirementInput.monthlyIncome} prefix={currencyPrefix} onChange={(next) => updateRetirement("monthlyIncome", next)}/>
           </div>
         </div>
         <div className="retirement-results">
