@@ -365,21 +365,26 @@ export async function createReportPdf({ profile = {}, calculatedAge = null, valu
     context.font = '600 13px system-ui, "Noto Sans", sans-serif';
     context.fillText(t.noSnapshots, 86, progressY + 76);
   } else {
+    const cols = [86, 255, 525, 815];
+    context.fillStyle = muted;
+    context.font = '850 11px system-ui, "Noto Sans", sans-serif';
+    context.fillText("QUARTER", cols[0], progressY + 68);
+    context.fillText(t.totalAssets.toUpperCase(), cols[1], progressY + 68);
+    context.fillText(t.liabilities.toUpperCase(), cols[2], progressY + 68);
+    context.fillText(t.equity.toUpperCase(), cols[3], progressY + 68);
+
     rows.forEach((item, index) => {
-      const y = progressY + 70 + index * 22;
+      const y = progressY + 86 + index * 18;
       context.fillStyle = navy;
-      context.font = '800 12px system-ui, "Noto Sans", sans-serif';
-      context.fillText(item.key, 86, y);
+      context.font = '800 11px system-ui, "Noto Sans", sans-serif';
+      context.fillText(item.key, cols[0], y);
       context.fillStyle = muted;
-      context.font = '700 12px system-ui, "Noto Sans", sans-serif';
-      context.fillText(`${t.equity}: ${amount(item.equity, currency)}`, 230, y);
-      context.fillText(`${t.liabilities}: ${amount(item.liabilities, currency)}`, 590, y);
+      context.font = '750 11px system-ui, "Noto Sans", sans-serif';
+      context.fillText(amount(item.assets, currency), cols[1], y);
+      context.fillText(amount(item.liabilities, currency), cols[2], y);
+      context.fillText(amount(item.equity, currency), cols[3], y);
     });
   }
-
-  context.fillStyle = muted;
-  context.font = '500 12px system-ui, "Noto Sans", sans-serif';
-  context.fillText(t.local, 66, 1730);
 
   const jpegBlob = await canvasBlob(canvas, "image/jpeg", 0.94);
   const jpegBytes = new Uint8Array(await jpegBlob.arrayBuffer());
