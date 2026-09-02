@@ -78,7 +78,7 @@ export function blobToBase64(blob) {
   });
 }
 
-export async function createReportPdf({ values, balance, retirement, retirementInput, currency, language, t }) {
+export async function createReportPdf({ values, balance, retirement, retirementInput, currency, language, t, edition = "paid", quarterlyHistory = [] }) {
   const width = 1240;
   const height = 1754;
   const canvas = document.createElement("canvas");
@@ -94,21 +94,22 @@ export async function createReportPdf({ values, balance, retirement, retirementI
   const muted = "#65748b";
   const red = "#c34242";
   const locale = language === "ms" ? "ms-MY" : language === "zh" ? "zh-CN" : "en-MY";
+  const isFree = edition === "free";
 
   context.fillStyle = paper;
   context.fillRect(0, 0, width, height);
   context.fillStyle = navy;
-  context.fillRect(0, 0, width, 248);
+  context.fillRect(0, 0, width, 226);
   context.fillStyle = gold;
-  context.fillRect(0, 0, 22, height);
+  context.fillRect(0, 0, 20, height);
   context.fillStyle = "#ffffff";
-  context.font = '800 30px system-ui, "Noto Sans", sans-serif';
-  context.fillText(t.brand, 78, 82);
-  context.font = '900 62px system-ui, "Noto Sans", sans-serif';
-  context.fillText(t.reportTitle, 78, 162);
+  context.font = '800 28px system-ui, "Noto Sans", sans-serif';
+  context.fillText(t.brand, 76, 72);
+  context.font = '900 56px system-ui, "Noto Sans", sans-serif';
+  context.fillText(t.reportTitle, 76, 145);
   context.fillStyle = "#b9c9e8";
-  context.font = '500 21px system-ui, "Noto Sans", sans-serif';
-  context.fillText(new Date().toLocaleDateString(locale, { day: "numeric", month: "long", year: "numeric" }), 80, 208);
+  context.font = '500 20px system-ui, "Noto Sans", sans-serif';
+  context.fillText(new Date().toLocaleDateString(locale, { day: "numeric", month: "long", year: "numeric" }), 78, 190);
 
   const summary = [
     [t.totalAssets, amount(balance.assets, currency), teal],
@@ -116,107 +117,188 @@ export async function createReportPdf({ values, balance, retirement, retirementI
     [t.netWorth, amount(balance.equity, currency), balance.equity >= 0 ? blue : red],
   ];
   summary.forEach(([label, value, color], index) => {
-    const x = 76 + index * 367;
+    const x = 70 + index * 374;
     context.fillStyle = card;
-    context.fillRect(x, 292, 336, 152);
+    context.fillRect(x, 258, 344, 132);
     context.fillStyle = muted;
-    context.font = '800 16px system-ui, "Noto Sans", sans-serif';
-    context.fillText(label.toUpperCase(), x + 24, 334);
+    context.font = '800 15px system-ui, "Noto Sans", sans-serif';
+    context.fillText(label.toUpperCase(), x + 22, 297);
     context.fillStyle = color;
-    context.font = '800 37px system-ui, "Noto Sans", sans-serif';
-    context.fillText(value, x + 24, 394);
+    context.font = '900 33px system-ui, "Noto Sans", sans-serif';
+    context.fillText(value, x + 22, 350);
   });
 
-  const drawRows = (title, keys, x, y, boxWidth) => {
-    context.fillStyle = card;
-    context.fillRect(x, y, boxWidth, 76 + keys.length * 51);
-    context.fillStyle = navy;
-    context.font = '900 19px system-ui, "Noto Sans", sans-serif';
-    context.fillText(title.toUpperCase(), x + 24, y + 42);
-    keys.forEach((key, index) => {
-      const rowY = y + 84 + index * 51;
-      context.strokeStyle = "#e3e8f1";
-      context.beginPath();
-      context.moveTo(x + 24, rowY - 22);
-      context.lineTo(x + boxWidth - 24, rowY - 22);
-      context.stroke();
-      context.fillStyle = muted;
-      context.font = '500 17px system-ui, "Noto Sans", sans-serif';
-      context.fillText(t[key], x + 24, rowY + 4);
-      context.fillStyle = navy;
-      context.font = '800 17px system-ui, "Noto Sans", sans-serif';
-      context.textAlign = "right";
-      context.fillText(amount(safeNumber(values[key]), currency), x + boxWidth - 24, rowY + 4);
-      context.textAlign = "left";
-    });
+  const squareX = 70;
+  const squareY = 430;
+  const squareW = 1100;
+  const squareH = 560;
+  const gap = 8;
+  const leftW = (squareW - gap) / 2;
+  const rightX = squareX + leftW + gap;
+  const liabilityRatio = balance.assets > 0 ? Math.max(0, Math.min(1, balance.liabilities / balance.assets)) : (balance.liabilities > 0 ? 1 : 0);
+  const dividerY = squareY + squareH * liabilityRatio;
+
+  context.fillStyle = navy;
+  context.fillRect(squareX - 6, squareY - 6, squareW + 12, squareH + 12);
+
+  context.fillStyle = "#dff8f3";
+  context.fillRect(squareX, squareY, leftW, squareH);
+
+  context.fillStyle = "#ffe0dc";
+  context.fillRect(rightX, squareY, leftW, Math.max(0, dividerY - squareY));
+  context.fillStyle = "#0e6d68";
+  context.fillRect(rightX, dividerY, leftW, Math.max(0, squareY + squareH - dividerY));
+
+  context.fillStyle = navy;
+  context.fillRect(rightX, dividerY - 3, leftW, 6);
+
+  const drawTitle = (label, value, x, y, textColor = navy) => {
+    context.fillStyle = textColor;
+    context.font = '900 16px system-ui, "Noto Sans", sans-serif';
+    context.fillText(label.toUpperCase(), x, y);
+    context.textAlign = "right";
+    context.font = '900 25px system-ui, "Noto Sans", sans-serif';
+    context.fillText(value, x + leftW - 48, y + 2);
+    context.textAlign = "left";
   };
 
-  drawRows(t.assetsPage, assetKeys, 76, 492, 532);
-  drawRows(t.debtsPage, debtKeys, 632, 492, 532);
+  drawTitle(t.assetsPage, amount(balance.assets, currency), squareX + 24, squareY + 40);
 
-  const ratioY = 900;
-  context.fillStyle = navy;
-  context.fillRect(76, ratioY, 1088, 190);
-  const ratios = [
-    [t.debtAsset, `${balance.debtAsset.toFixed(1)}%`],
-    [t.equityRatio, `${balance.equityRatio.toFixed(1)}%`],
-    [t.debtEquity, balance.debtEquity === null ? "—" : `${balance.debtEquity.toFixed(2)}×`],
-    [t.runway, `${balance.runway.toFixed(1)} ${t.months}`],
-  ];
-  ratios.forEach(([label, value], index) => {
-    const x = 104 + index * 263;
-    context.fillStyle = "#9fb0cc";
-    context.font = '700 15px system-ui, "Noto Sans", sans-serif';
-    context.fillText(label.toUpperCase(), x, ratioY + 52);
-    context.fillStyle = index === 0 ? gold : "#ffffff";
-    context.font = '800 35px system-ui, "Noto Sans", sans-serif';
-    context.fillText(value, x, ratioY + 113);
-  });
-
-  const retirementY = 1134;
-  context.fillStyle = card;
-  context.fillRect(76, retirementY, 1088, 354);
-  context.fillStyle = blue;
-  context.font = '900 20px system-ui, "Noto Sans", sans-serif';
-  context.fillText(t.retirementTitle.toUpperCase(), 104, retirementY + 44);
-  const retirementSummary = [
-    [t.projectedFund, amount(retirement.projectedFund, currency)],
-    [t.requiredFund, amount(retirement.requiredFund, currency)],
-    [t.fundingGap, amount(retirement.gap, currency)],
-    [t.lastsUntil, `${t.age} ${retirement.lastsUntil}`],
-  ];
-  retirementSummary.forEach(([label, value], index) => {
-    const column = index % 2;
-    const row = Math.floor(index / 2);
-    const x = 104 + column * 520;
-    const y = retirementY + 100 + row * 112;
+  assetKeys.forEach((key, index) => {
+    const y = squareY + 94 + index * 62;
+    context.strokeStyle = "rgba(11,31,58,.15)";
+    context.beginPath();
+    context.moveTo(squareX + 24, y + 22);
+    context.lineTo(squareX + leftW - 24, y + 22);
+    context.stroke();
     context.fillStyle = muted;
-    context.font = '700 15px system-ui, "Noto Sans", sans-serif';
-    wrapText(context, label.toUpperCase(), x, y, 430, 20, 2);
-    context.fillStyle = index === 2 && retirement.gap < 0 ? red : navy;
-    context.font = '900 31px system-ui, "Noto Sans", sans-serif';
-    context.fillText(value, x, y + 48);
+    context.font = '600 17px system-ui, "Noto Sans", sans-serif';
+    context.fillText(t[key], squareX + 24, y);
+    context.fillStyle = navy;
+    context.font = '800 17px system-ui, "Noto Sans", sans-serif';
+    context.textAlign = "right";
+    context.fillText(amount(safeNumber(values[key]), currency), squareX + leftW - 24, y);
+    context.textAlign = "left";
   });
 
-  context.fillStyle = retirement.onTrack ? teal : red;
-  context.fillRect(76, 1518, 1088, 72);
-  context.fillStyle = "#ffffff";
-  context.font = '900 23px system-ui, "Noto Sans", sans-serif';
-  context.fillText(retirement.onTrack ? t.onTrack : t.needsWork, 104, 1564);
+  // Liability list is shown in a compact overlay while the divider itself remains exactly proportional.
+  const liabilitiesBoxY = squareY + 22;
+  context.fillStyle = "rgba(255,255,255,.86)";
+  context.fillRect(rightX + 18, liabilitiesBoxY, leftW - 36, 270);
+  context.fillStyle = red;
+  context.font = '900 16px system-ui, "Noto Sans", sans-serif';
+  context.fillText(t.liabilities.toUpperCase(), rightX + 36, liabilitiesBoxY + 36);
   context.textAlign = "right";
-  context.font = '700 18px system-ui, "Noto Sans", sans-serif';
-  context.fillText(`${t.retirementAge}: ${retirementInput.retirementAge}  ·  ${t.planToAge}: ${retirementInput.planToAge}`, 1132, 1563);
+  context.font = '900 24px system-ui, "Noto Sans", sans-serif';
+  context.fillText(amount(balance.liabilities, currency), rightX + leftW - 36, liabilitiesBoxY + 38);
   context.textAlign = "left";
 
-  context.fillStyle = muted;
-  context.font = '500 16px system-ui, "Noto Sans", sans-serif';
-  wrapText(context, t.projectionNote, 78, 1640, 1060, 25, 3);
+  debtKeys.forEach((key, index) => {
+    const y = liabilitiesBoxY + 86 + index * 43;
+    context.fillStyle = muted;
+    context.font = '600 15px system-ui, "Noto Sans", sans-serif';
+    context.fillText(t[key], rightX + 36, y);
+    context.fillStyle = navy;
+    context.font = '800 15px system-ui, "Noto Sans", sans-serif';
+    context.textAlign = "right";
+    context.fillText(amount(safeNumber(values[key]), currency), rightX + leftW - 36, y);
+    context.textAlign = "left";
+  });
+
+  context.fillStyle = "rgba(11,31,58,.28)";
+  context.fillRect(rightX + 18, squareY + squareH - 112, leftW - 36, 88);
+  context.fillStyle = "#ffffff";
+  context.font = '900 16px system-ui, "Noto Sans", sans-serif';
+  context.fillText(t.equity.toUpperCase(), rightX + 36, squareY + squareH - 76);
+  context.textAlign = "right";
+  context.font = '900 29px system-ui, "Noto Sans", sans-serif';
+  context.fillText(amount(balance.equity, currency), rightX + leftW - 36, squareY + squareH - 72);
+  context.textAlign = "left";
+  context.font = '700 15px system-ui, "Noto Sans", sans-serif';
+  context.fillText(`${balance.equityRatio.toFixed(1)}%`, rightX + 36, squareY + squareH - 43);
+
+  const progressY = 1042;
+  context.fillStyle = card;
+  context.fillRect(70, progressY, 1100, 300);
   context.fillStyle = navy;
-  context.font = '800 18px system-ui, "Noto Sans", sans-serif';
-  context.fillText(t.local, 78, 1710);
+  context.font = '900 20px system-ui, "Noto Sans", sans-serif';
+  context.fillText(t.quarterlyProgress.toUpperCase(), 96, progressY + 40);
+  context.fillStyle = muted;
+  context.font = '500 15px system-ui, "Noto Sans", sans-serif';
+  context.fillText(isFree ? t.progressLimitFree : t.progressLimitPaid, 96, progressY + 70);
+
+  const rows = quarterlyHistory.slice(-6);
+  if (!rows.length) {
+    context.fillStyle = muted;
+    context.font = '600 17px system-ui, "Noto Sans", sans-serif';
+    context.fillText(t.noSnapshots, 96, progressY + 128);
+  } else {
+    const cols = [96, 310, 575, 830];
+    const headers = ["Quarter", t.totalAssets, t.liabilities, t.equity];
+    context.fillStyle = "#eef3f8";
+    context.fillRect(88, progressY + 92, 1064, 42);
+    headers.forEach((label, i) => {
+      context.fillStyle = muted;
+      context.font = '800 13px system-ui, "Noto Sans", sans-serif';
+      context.fillText(String(label).toUpperCase(), cols[i], progressY + 119);
+    });
+    rows.forEach((item, index) => {
+      const y = progressY + 160 + index * 34;
+      context.fillStyle = index % 2 ? "#f8fafc" : "#ffffff";
+      context.fillRect(88, y - 22, 1064, 32);
+      const vals = [item.key, amount(item.assets, currency), amount(item.liabilities, currency), amount(item.equity, currency)];
+      vals.forEach((value, i) => {
+        context.fillStyle = i === 0 ? navy : muted;
+        context.font = i === 0 ? '800 14px system-ui, "Noto Sans", sans-serif' : '700 14px system-ui, "Noto Sans", sans-serif';
+        context.fillText(String(value), cols[i], y);
+      });
+    });
+  }
+
+  const retirementY = 1380;
+  const drawRetirement = () => {
+    context.fillStyle = navy;
+    context.fillRect(70, retirementY, 1100, 190);
+    context.fillStyle = "#9fb0cc";
+    context.font = '800 15px system-ui, "Noto Sans", sans-serif';
+    context.fillText(t.retirementTitle.toUpperCase(), 96, retirementY + 38);
+    context.fillStyle = retirement.onTrack ? teal : red;
+    context.font = '900 30px system-ui, "Noto Sans", sans-serif';
+    context.fillText(retirement.onTrack ? t.onTrack : t.needsWork, 96, retirementY + 88);
+    context.fillStyle = "#ffffff";
+    context.font = '800 20px system-ui, "Noto Sans", sans-serif';
+    context.fillText(`${t.projectedFund}: ${amount(retirement.projectedFund, currency)}`, 96, retirementY + 132);
+    context.fillText(`${t.lastsUntil}: ${t.age} ${retirement.lastsUntil}`, 640, retirementY + 132);
+  };
+
+  if (isFree) {
+    context.save();
+    context.filter = "blur(11px)";
+    drawRetirement();
+    context.restore();
+    context.fillStyle = "rgba(11,31,58,.58)";
+    context.fillRect(70, retirementY, 1100, 190);
+    context.fillStyle = "#ffffff";
+    context.textAlign = "center";
+    context.font = '900 27px system-ui, "Noto Sans", sans-serif';
+    context.fillText(t.paidEdition, 620, retirementY + 82);
+    context.font = '700 17px system-ui, "Noto Sans", sans-serif';
+    wrapText(context, t.upgradeMessage, 620, retirementY + 116, 680, 23, 2);
+    context.textAlign = "left";
+  } else {
+    drawRetirement();
+  }
+
+  context.fillStyle = muted;
+  context.font = '500 15px system-ui, "Noto Sans", sans-serif';
+  wrapText(context, t.projectionNote, 76, 1620, 1080, 23, 3);
+  context.fillStyle = navy;
+  context.font = '800 17px system-ui, "Noto Sans", sans-serif';
+  context.fillText(t.local, 76, 1700);
 
   const jpegBlob = await canvasBlob(canvas, "image/jpeg", 0.94);
   const jpegBytes = new Uint8Array(await jpegBlob.arrayBuffer());
   const pdf = buildImagePdf(jpegBytes, width, height);
-  return { pdf, filename: `balance-sheet-square-v2-${new Date().toISOString().slice(0, 10)}.pdf` };
+  const suffix = isFree ? "free" : "paid";
+  return { pdf, filename: `balance-sheet-square-${suffix}-${new Date().toISOString().slice(0, 10)}.pdf` };
 }
