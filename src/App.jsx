@@ -57,7 +57,7 @@ function HelpTip({ text }) {
   );
 }
 
-function Field({ label, help, value, prefix, suffix, onChange, min = 0, max }) {
+function Field({ label, help, value, prefix, suffix, onChange, min = 0, max, locked = false, onLocked }) {
   const cleanInput = (rawValue) => {
     const sanitized = rawValue.replace(/[^0-9.]/g, "");
     const [whole = "", ...decimals] = sanitized.split(".");
@@ -69,6 +69,7 @@ function Field({ label, help, value, prefix, suffix, onChange, min = 0, max }) {
       <span className="field-label-row">
         <span className="field-label">{label}</span>
         {help && <HelpTip text={help}/>}
+        {locked && <button type="button" className="field-lock" onClick={(event) => { event.preventDefault(); onLocked?.(); }} aria-label="Locked"><Icon name="lock"/></button>}
       </span>
       <span className="field-control">
         {prefix && <b>{prefix}</b>}
@@ -76,6 +77,8 @@ function Field({ label, help, value, prefix, suffix, onChange, min = 0, max }) {
           type="text"
           inputMode="decimal"
           value={value}
+          readOnly={locked}
+          onClick={() => { if (locked) onLocked?.(); }}
           onChange={(event) => {
             onChange(cleanInput(event.target.value));
           }}
@@ -262,6 +265,7 @@ export default function App() {
   const [activeScenario, setActiveScenario] = useState(0);
   const [hydrated, setHydrated] = useState(false);
   const [actionStatus, setActionStatus] = useState("");
+  const [quarterlyHistory, setQuarterlyHistory] = useState([]);
   const t = translations[language];
   const currencyPrefix = currency === "RM" ? "RM" : currency === "USD" ? "$" : "¥";
 
@@ -282,35 +286,32 @@ export default function App() {
       if (translations[saved?.language]) setLanguage(saved.language);
       if (["RM", "USD", "CNY"].includes(saved?.currency)) setCurrency(saved.currency);
       if (Number.isInteger(saved?.activeScenario)) setActiveScenario(saved.activeScenario);
+      if (Array.isArray(saved?.quarterlyHistory)) setQuarterlyHistory(saved.quarterlyHistory);
     } catch {}
     setHydrated(true);
   }, []);
 
   useEffect(() => {
-    if (!hydrated) return;
-    localStorage.setItem("balance-sheet-square-v2", JSON.stringify({ values, retirementInput, language, currency, activeScenario }));
-  }, [values, retirementInput, language, currency, activeScenario, hydrated]);
+    if (!isFree) return;
+    setRetirementInput((current) => ({
+      ...current,
+      cashReturn: "2.5",
+      investmentReturn: "2.5",
+      retirementReturn: "2.5",
+    }));
+  }, [isFree]);
 
   useEffect(() => {
-    const handleHash = () => {
-      const nextPage = routeFromHash();
-      if (isFree && nextPage === "retirement") {
-        setUpgradeOpen(true);
-        setPage("home");
-        window.history.replaceState(null, "", "#/home");
-        return;
-      }
-      setPage(nextPage);
-    };
+    if (!hydrated) return;
+    localStorage.setItem("balance-sheet-square-v2", JSON.stringify({ values, retirementInput, language, currency, activeScenario, quarterlyHistory }));
+  }, [values, retirementInput, language, currency, activeScenario, quarterlyHistory, hydrated]);
+
+  useEffect(() => {
+    const handleHash = () => setPage(routeFromHash());
     window.addEventListener("hashchange", handleHash);
     if (!window.location.hash) window.history.replaceState(null, "", "#/home");
-    if (isFree && routeFromHash() === "retirement") {
-      setUpgradeOpen(true);
-      setPage("home");
-      window.history.replaceState(null, "", "#/home");
-    }
     return () => window.removeEventListener("hashchange", handleHash);
-  }, [isFree]);
+  }, []);
 
   useEffect(() => {
     if ("serviceWorker" in navigator && window.location.hostname !== "appassets.androidplatform.net") {
@@ -322,10 +323,6 @@ export default function App() {
   const retirement = useMemo(() => calculateRetirement(retirementInput), [retirementInput]);
 
   const navigate = (nextPage) => {
-    if (isFree && nextPage === "retirement") {
-      setUpgradeOpen(true);
-      return;
-    }
     window.location.hash = `/${nextPage}`;
     setPage(nextPage);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -334,7 +331,13 @@ export default function App() {
     setValues((current) => ({ ...current, [key]: next }));
     setActiveScenario(-1);
   };
-  const updateRetirement = (key, next) => setRetirementInput((current) => ({ ...current, [key]: next }));
+  const updateRetirement = (key, next) => {
+    if (isFree && ["cashReturn", "investmentReturn", "retirementReturn"].includes(key)) {
+      setUpgradeOpen(true);
+      return;
+    }
+    setRetirementInput((current) => ({ ...current, [key]: next }));
+  };
   const loadScenario = (index) => {
     setValues({ ...scenarios[index].values });
     setActiveScenario(index);
@@ -348,6 +351,41 @@ export default function App() {
       retirementSavings: String(safeNumber(values.retirement)),
     }));
   };
+  const saveQuarterlySnapshot = () => {
+    const now = new Date();
+    const quarter = Math.floor(now.getMonth() / 3) + 1;
+    const key = `${now.getFullYear()}-Q${quarter}`;
+    const snapshot = {
+      key,
+      year: now.getFullYear(),
+      quarter,
+      savedAt: now.toISOString(),
+      assets: balance.assets,
+      liabilities: balance.liabilities,
+      equity: balance.equity,
+      debtAsset: balance.debtAsset,
+      equityRatio: balance.equityRatio,
+      retirementFund: retirement.projectedFund,
+    };
+    const limit = isFree ? 2 : 40;
+    const existingIndex = quarterlyHistory.findIndex((item) => item.key === key);
+    if (existingIndex === -1 && quarterlyHistory.length >= limit) {
+      if (isFree) setUpgradeOpen(true);
+      setActionStatus(isFree ? t.progressLimitFree : t.progressLimitPaid);
+      window.setTimeout(() => setActionStatus(""), 4200);
+      return;
+    }
+    setQuarterlyHistory((current) => {
+      const next = [...current];
+      const index = next.findIndex((item) => item.key === key);
+      if (index >= 0) next[index] = snapshot;
+      else next.push(snapshot);
+      return next.sort((a, b) => a.key.localeCompare(b.key));
+    });
+    setActionStatus(t.snapshotSaved);
+    window.setTimeout(() => setActionStatus(""), 3200);
+  };
+
   const resetAll = () => {
     if (!window.confirm(t.resetConfirm)) return;
     setValues({ ...defaultValues });
@@ -359,7 +397,7 @@ export default function App() {
   const prepareReport = async (shouldShare) => {
     setActionStatus(t.exporting);
     try {
-      const { pdf, filename } = await createReportPdf({ values, balance, retirement, retirementInput, currency, language, t, edition });
+      const { pdf, filename } = await createReportPdf({ values, balance, retirement, retirementInput, currency, language, t, edition, quarterlyHistory });
       if (window.AndroidBridge?.sharePdf || window.AndroidBridge?.savePdf) {
         const base64 = await blobToBase64(pdf);
         if (shouldShare && window.AndroidBridge.sharePdf) window.AndroidBridge.sharePdf(base64, filename);
@@ -416,7 +454,7 @@ export default function App() {
           <Stat label={t.totalAssets} value={amount(balance.assets, currency, true)} tone="teal" icon="assets"/>
           <Stat label={t.liabilities} value={amount(balance.liabilities, currency, true)} tone={debtTone} icon="debts"/>
           <Stat label={t.netWorth} value={amount(balance.equity, currency, true)} tone={balance.equity >= 0 ? "blue" : "red"} icon="square"/>
-          <Stat label={t.retirePage} value={isFree ? t.paidEdition : (retirement.onTrack ? t.onTrack : t.needsWork)} note={isFree ? t.upgradeMessage : `${t.age} ${retirement.lastsUntil}`} tone={isFree ? "gold" : (retirement.onTrack ? "teal" : "red")} icon="retirement"/>
+          <Stat label={t.retirePage} value={retirement.onTrack ? t.onTrack : t.needsWork} note={`${t.age} ${retirement.lastsUntil}`} tone={retirement.onTrack ? "teal" : "red"} icon="retirement"/>
         </div>
 
         <div className="section-title-row"><div><h2>{t.quickActions}</h2><p>{t.quickHint}</p></div></div>
@@ -498,9 +536,10 @@ export default function App() {
             <Field label={t.retirement} value={retirementInput.retirementSavings} prefix={currencyPrefix} onChange={(next) => updateRetirement("retirementSavings", next)}/>
             <button type="button" className="inline-link" onClick={syncRetirement}>{t.useMyBalance} · {amount(safeNumber(values.cash) + safeNumber(values.investments) + safeNumber(values.retirement), currency)}</button>
             <Field label={t.monthlyContribution} value={retirementInput.monthlyContribution} prefix={currencyPrefix} onChange={(next) => updateRetirement("monthlyContribution", next)}/>
-            <Field label={t.cashReturn} value={retirementInput.cashReturn} suffix="%" onChange={(next) => updateRetirement("cashReturn", next)} max={30}/>
-            <Field label={t.investmentReturn} value={retirementInput.investmentReturn} suffix="%" onChange={(next) => updateRetirement("investmentReturn", next)} max={30}/>
-            <Field label={t.retirementReturn} value={retirementInput.retirementReturn} suffix="%" onChange={(next) => updateRetirement("retirementReturn", next)} max={30}/>
+            {isFree && <div className="free-assumption-note"><Icon name="lock"/><span>{t.conservativeAssumption}</span></div>}
+            <Field label={t.cashReturn} value={isFree ? "2.5" : retirementInput.cashReturn} suffix="%" locked={isFree} onLocked={() => setUpgradeOpen(true)} onChange={(next) => updateRetirement("cashReturn", next)} max={30}/>
+            <Field label={t.investmentReturn} value={isFree ? "2.5" : retirementInput.investmentReturn} suffix="%" locked={isFree} onLocked={() => setUpgradeOpen(true)} onChange={(next) => updateRetirement("investmentReturn", next)} max={30}/>
+            <Field label={t.retirementReturn} value={isFree ? "2.5" : retirementInput.retirementReturn} suffix="%" locked={isFree} onLocked={() => setUpgradeOpen(true)} onChange={(next) => updateRetirement("retirementReturn", next)} max={30}/>
             <Field label={t.inflation} value={retirementInput.inflation} suffix="%" onChange={(next) => updateRetirement("inflation", next)} max={20}/>
             <Field label={t.monthlySpending} value={retirementInput.monthlySpending} prefix={currencyPrefix} onChange={(next) => updateRetirement("monthlySpending", next)}/>
             <Field label={t.monthlyIncome} help={t.monthlyIncomeHelp} value={retirementInput.monthlyIncome} prefix={currencyPrefix} onChange={(next) => updateRetirement("monthlyIncome", next)}/>
@@ -559,6 +598,21 @@ export default function App() {
             <div className="report-retirement"><span>{t.retirementTitle}</span><strong>{retirement.onTrack ? t.onTrack : t.needsWork}</strong><b>{t.projectedFund}: {amount(retirement.projectedFund, currency, true)}</b></div>
             {isFree && <button type="button" className="report-upgrade-overlay" onClick={() => setUpgradeOpen(true)}><Icon name="lock"/><strong>{t.paidEdition}</strong><span>{t.upgradeMessage}</span></button>}
           </div>
+          <section className="quarterly-progress">
+            <div className="quarterly-progress-head">
+              <div><h3>{t.quarterlyProgress}</h3><p>{t.quarterlyProgressHint}</p></div>
+              <button type="button" className="button secondary" onClick={saveQuarterlySnapshot}>{t.saveQuarter}</button>
+            </div>
+            <small className="quarterly-limit">{isFree ? t.progressLimitFree : t.progressLimitPaid}</small>
+            {quarterlyHistory.length ? (
+              <div className="quarterly-table">
+                <div className="quarterly-row quarterly-header"><span>Quarter</span><span>{t.totalAssets}</span><span>{t.liabilities}</span><span>{t.equity}</span></div>
+                {quarterlyHistory.map((item) => (
+                  <div className="quarterly-row" key={item.key}><strong>{item.key}</strong><span>{amount(item.assets, currency, true)}</span><span>{amount(item.liabilities, currency, true)}</span><span>{amount(item.equity, currency, true)}</span></div>
+                ))}
+              </div>
+            ) : <p className="quarterly-empty">{t.noSnapshots}</p>}
+          </section>
         </div>
         <aside className="card report-actions-card">
           <span className="big-icon blue"><Icon name="report"/></span><h2>{t.reportPage}</h2><p>{t.reportPrivacy}</p>
