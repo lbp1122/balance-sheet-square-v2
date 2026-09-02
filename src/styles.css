@@ -295,12 +295,12 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .report-preview-head { padding-bottom: 28px; display: flex; align-items: center; gap: 18px; border-bottom: 5px solid var(--navy); }
 .report-preview-head img { width: 72px; height: 72px; border-radius: 18px; }
 .report-preview-head span { color: var(--blue); font-size: 14px; font-weight: 850; }
-.report-preview-head h2 { margin: 1px 0 0; color: var(--navy); font-size: 30px; }
-.report-preview-head small { color: var(--muted); }
+.report-preview-head h2 { margin: 1px 0 0; color: var(--navy); font-size: 34px; font-weight: 950; }
+.report-preview-head small { display: block; margin-top: 6px; color: var(--muted); line-height: 1.5; font-size: 14px; }
 .report-summary { margin-top: 35px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
 .report-summary .stat-card { min-height: 145px; }
 
-.report-balance-square { margin-top: 28px; width: 100%; aspect-ratio: 1 / 1; display: grid; grid-template-columns: 1fr 1fr; overflow: hidden; border: 6px solid var(--navy); border-radius: 16px; background: var(--navy); gap: 6px; }
+.report-balance-square { margin: 28px auto 0; width: min(100%, 760px); aspect-ratio: 1 / 1; display: grid; grid-template-columns: 1fr 1fr; overflow: hidden; border: 6px solid var(--navy); border-radius: 16px; background: var(--navy); gap: 6px; }
 .report-square-assets { padding: 24px; background: #dff8f3; }
 .report-square-funding { position: relative; min-height: 0; background: linear-gradient(to bottom, #ffe0dc 0, #ffe0dc var(--liability-pct), #0e6d68 var(--liability-pct), #0e6d68 100%); }
 .report-square-divider { position: absolute; z-index: 1; left: 0; right: 0; top: var(--liability-pct); height: 6px; transform: translateY(-3px); background: var(--navy); }
@@ -308,17 +308,23 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .report-square-title span { font-size: 14px; font-weight: 950; text-transform: uppercase; letter-spacing: .08em; }
 .report-square-title strong { font-size: 24px; letter-spacing: -.04em; }
 .report-square-list { margin-top: 20px; display: grid; gap: 10px; }
-.report-square-list > div { padding-bottom: 7px; display: flex; justify-content: space-between; gap: 12px; border-bottom: 1px solid rgba(11,31,58,.12); font-size: 13px; }
+.report-square-list > div { padding-bottom: 8px; display: flex; justify-content: space-between; gap: 12px; border-bottom: 1px solid rgba(11,31,58,.12); font-size: 15px; }
 .report-square-list span { font-weight: 650; }
 .report-square-list b { text-align: right; font-variant-numeric: tabular-nums; }
-.report-square-liability-summary { position: absolute; z-index: 2; left: 16px; right: 16px; top: 14px; padding: 10px 12px; display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; align-items: end; color: #963f36; border-radius: 10px; background: rgba(255,255,255,.84); }
-.report-square-liability-summary span { font-size: 12px; font-weight: 950; text-transform: uppercase; letter-spacing: .06em; }
-.report-square-liability-summary strong { grid-row: 1 / span 2; grid-column: 2; font-size: 22px; letter-spacing: -.03em; }
-.report-square-liability-summary small { font-size: 12px; font-weight: 850; }
+.report-square-liability-summary { position: absolute; z-index: 2; left: 14px; right: 14px; top: 12px; padding: 10px 12px; color: #963f36; border-radius: 10px; background: rgba(255,255,255,.88); }
+.liability-summary-head { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; align-items: end; }
+.liability-summary-head span { font-size: 13px; font-weight: 950; text-transform: uppercase; letter-spacing: .06em; }
+.liability-summary-head strong { grid-row: 1 / span 2; grid-column: 2; font-size: 23px; letter-spacing: -.03em; }
+.liability-summary-head small { font-size: 13px; font-weight: 850; }
+.report-square-liability-summary.with-details { max-height: calc(var(--liability-pct) - 22px); overflow: hidden; }
+.report-square-liability-list { margin-top: 9px; display: grid; gap: 4px; }
+.report-square-liability-list > div { padding-top: 5px; display: flex; justify-content: space-between; gap: 10px; border-top: 1px solid rgba(150,63,54,.12); font-size: 12px; }
+.report-square-liability-list span { color: #7a4b46; font-weight: 700; }
+.report-square-liability-list b { color: var(--navy); text-align: right; }
 .report-liability-details { margin-top: 18px; padding: 20px 22px; border: 1px solid var(--line); border-radius: 16px; background: #fff7f5; }
-.report-liability-details h3 { margin: 0 0 14px; color: #963f36; font-size: 18px; }
+.report-liability-details h3 { margin: 0 0 14px; color: #963f36; font-size: 21px; }
 .report-liability-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 10px 18px; }
-.report-liability-grid > div { padding-bottom: 8px; display: flex; justify-content: space-between; gap: 10px; border-bottom: 1px solid rgba(150,63,54,.12); font-size: 13px; }
+.report-liability-grid > div { padding-bottom: 10px; display: flex; justify-content: space-between; gap: 10px; border-bottom: 1px solid rgba(150,63,54,.12); font-size: 15px; }
 .report-liability-grid span { color: var(--muted); font-weight: 650; }
 .report-liability-grid b { color: var(--navy); text-align: right; }
 .report-square-equity { position: absolute; z-index: 2; left: 18px; right: 18px; bottom: 18px; padding: 17px; display: grid; grid-template-columns: 1fr auto; gap: 3px 14px; align-items: end; color: white; border-radius: 12px; background: rgba(11,31,58,.24); }
@@ -464,7 +470,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
   .report-preview-head img { width: 58px; height: 58px; }
   .report-summary .stat-card { min-height: 122px; }
   .report-summary .stat-card > strong { font-size: 24px; }
-  .report-balance-square { grid-template-columns: 1fr 1fr; aspect-ratio: 1 / 1; }
+  .report-balance-square { width: min(100%, 620px); grid-template-columns: 1fr 1fr; aspect-ratio: 1 / 1; }
   .report-square-assets, .report-square-funding { min-height: 0; }
   .quarterly-progress-head { flex-direction: column; }
   .quarterly-row { grid-template-columns: .8fr 1fr 1fr 1fr; font-size: 12px; }
