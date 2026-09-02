@@ -133,58 +133,64 @@ export async function createReportPdf({ profile = {}, calculatedAge = null, valu
     context.fillText(value, x + 20, 318);
   });
 
-  // True 1:1 Balance Sheet Square.
+  // True 1:1 Balance Sheet Square, including the bottom total row.
   const squareSize = 850;
   const squareX = (width - squareSize) / 2;
   const squareY = 385;
   const half = squareSize / 2;
+  const totalBarH = 76;
+  const mainSquareH = squareSize - totalBarH - 6;
+  const mainBottomY = squareY + mainSquareH;
   const liabilityRatio = balance.assets > 0
     ? Math.max(0, Math.min(1, balance.liabilities / balance.assets))
     : balance.liabilities > 0 ? 1 : 0;
-  const dividerY = squareY + squareSize * liabilityRatio;
+  const dividerY = squareY + mainSquareH * liabilityRatio;
+  const fundingTotal = balance.liabilities + balance.equity;
 
   context.fillStyle = navy;
   context.fillRect(squareX - 7, squareY - 7, squareSize + 14, squareSize + 14);
 
   context.fillStyle = "#dff8f3";
-  context.fillRect(squareX, squareY, half - 3, squareSize);
+  context.fillRect(squareX, squareY, half - 3, mainSquareH);
 
   context.fillStyle = "#ffe0dc";
   context.fillRect(squareX + half + 3, squareY, half - 3, Math.max(0, dividerY - squareY));
   context.fillStyle = "#0e6d68";
-  context.fillRect(squareX + half + 3, dividerY, half - 3, Math.max(0, squareY + squareSize - dividerY));
+  context.fillRect(squareX + half + 3, dividerY, half - 3, Math.max(0, mainBottomY - dividerY));
 
+  // One center divider and one horizontal divider for the total row.
   context.fillStyle = navy;
   context.fillRect(squareX + half - 3, squareY, 6, squareSize);
   context.fillRect(squareX + half + 3, dividerY - 3, half - 3, 6);
+  context.fillRect(squareX, mainBottomY, squareSize, 6);
 
-  // Assets details live inside the full-height left side.
+  // Assets details.
   context.fillStyle = navy;
-  context.font = '900 15px system-ui, "Noto Sans", sans-serif';
-  context.fillText(t.assetsPage.toUpperCase(), squareX + 24, squareY + 38);
+  context.font = '900 17px system-ui, "Noto Sans", sans-serif';
+  context.fillText(t.assetsPage.toUpperCase(), squareX + 24, squareY + 40);
   context.textAlign = "right";
-  context.font = '900 27px system-ui, "Noto Sans", sans-serif';
-  context.fillText(amount(balance.assets, currency), squareX + half - 28, squareY + 40);
+  context.font = '900 30px system-ui, "Noto Sans", sans-serif';
+  context.fillText(amount(balance.assets, currency), squareX + half - 28, squareY + 42);
   context.textAlign = "left";
 
   assetKeys.forEach((key, index) => {
-    const y = squareY + 104 + index * 70;
+    const y = squareY + 108 + index * 68;
     context.strokeStyle = "rgba(11,31,58,.14)";
     context.beginPath();
     context.moveTo(squareX + 24, y + 22);
     context.lineTo(squareX + half - 24, y + 22);
     context.stroke();
     context.fillStyle = muted;
-    context.font = '650 18px system-ui, "Noto Sans", sans-serif';
-    wrapText(context, t[key], squareX + 24, y, 210, 18, 2);
+    context.font = '700 19px system-ui, "Noto Sans", sans-serif';
+    wrapText(context, t[key], squareX + 24, y, 220, 20, 2);
     context.fillStyle = navy;
-    context.font = '850 18px system-ui, "Noto Sans", sans-serif';
+    context.font = '850 19px system-ui, "Noto Sans", sans-serif';
     context.textAlign = "right";
     context.fillText(amount(safeNumber(values[key]), currency), squareX + half - 24, y);
     context.textAlign = "left";
   });
 
-  // Adaptive liabilities: show all debt lines inside when the liability area is tall enough.
+  // Adaptive liabilities: show details inside when there is enough height.
   const rightX = squareX + half + 3;
   const showLiabilityDetailsInside = liabilityRatio >= 0.34;
   const liabilityBoxHeight = Math.max(92, dividerY - squareY - 30);
@@ -192,15 +198,15 @@ export async function createReportPdf({ profile = {}, calculatedAge = null, valu
   context.fillStyle = "rgba(255,255,255,.90)";
   context.fillRect(rightX + 18, squareY + 18, half - 42, showLiabilityDetailsInside ? Math.min(liabilityBoxHeight, 330) : 92);
   context.fillStyle = red;
-  context.font = '900 15px system-ui, "Noto Sans", sans-serif';
+  context.font = '900 16px system-ui, "Noto Sans", sans-serif';
   context.fillText(t.liabilities.toUpperCase(), rightX + 34, squareY + 50);
   context.fillStyle = navy;
-  context.font = '900 25px system-ui, "Noto Sans", sans-serif';
+  context.font = '900 27px system-ui, "Noto Sans", sans-serif';
   context.textAlign = "right";
   context.fillText(amount(balance.liabilities, currency), squareX + squareSize - 28, squareY + 52);
   context.textAlign = "left";
   context.fillStyle = red;
-  context.font = '850 15px system-ui, "Noto Sans", sans-serif';
+  context.font = '850 16px system-ui, "Noto Sans", sans-serif';
   context.fillText(`${balance.debtAsset.toFixed(1)}%`, rightX + 34, squareY + 82);
 
   if (showLiabilityDetailsInside) {
@@ -213,45 +219,41 @@ export async function createReportPdf({ profile = {}, calculatedAge = null, valu
       context.lineTo(squareX + squareSize - 28, y - 17);
       context.stroke();
       context.fillStyle = "#7a4b46";
-      context.font = '700 15px system-ui, "Noto Sans", sans-serif';
+      context.font = '700 16px system-ui, "Noto Sans", sans-serif';
       context.fillText(t[key], rightX + 34, y);
       context.fillStyle = navy;
-      context.font = '850 15px system-ui, "Noto Sans", sans-serif';
+      context.font = '850 16px system-ui, "Noto Sans", sans-serif';
       context.textAlign = "right";
       context.fillText(amount(safeNumber(values[key]), currency), squareX + squareSize - 28, y);
       context.textAlign = "left";
     });
   }
 
-  context.fillStyle = "rgba(11,31,58,.28)";
-  context.fillRect(rightX + 18, squareY + squareSize - 112, half - 42, 88);
+  // Equity amount centered in the Equity section.
+  const equityCenterY = dividerY + Math.max(0, (mainBottomY - dividerY) / 2);
   context.fillStyle = "#ffffff";
-  context.font = '900 15px system-ui, "Noto Sans", sans-serif';
-  context.fillText(t.equity.toUpperCase(), rightX + 34, squareY + squareSize - 76);
-  context.font = '900 27px system-ui, "Noto Sans", sans-serif';
-  context.textAlign = "right";
-  context.fillText(amount(balance.equity, currency), squareX + squareSize - 28, squareY + squareSize - 72);
-  context.textAlign = "left";
-  context.font = '800 14px system-ui, "Noto Sans", sans-serif';
-  context.fillText(`${balance.equityRatio.toFixed(1)}%`, rightX + 34, squareY + squareSize - 43);
-
-  // A/B totals beneath the Balance Sheet Square.
-  const totalBarY = squareY + squareSize + 16;
-  const totalBarH = 72;
-  const fundingTotal = balance.liabilities + balance.equity;
-  context.fillStyle = navy;
-  context.fillRect(squareX - 7, totalBarY - 7, squareSize + 14, totalBarH + 14);
-  context.fillStyle = "#edf3fb";
-  context.fillRect(squareX, totalBarY, half - 3, totalBarH);
-  context.fillRect(squareX + half + 3, totalBarY, half - 3, totalBarH);
-  context.fillStyle = navy;
-  context.font = '900 16px system-ui, "Noto Sans", sans-serif';
   context.textAlign = "center";
-  context.fillText(`A = ${t.totalAssets} = ${amount(balance.assets, currency, true)}`, squareX + half / 2, totalBarY + 43);
-  context.fillText(`B = ${t.liabilities} + ${t.equity} = ${amount(fundingTotal, currency, true)}`, squareX + half + half / 2, totalBarY + 43);
+  context.font = '900 17px system-ui, "Noto Sans", sans-serif';
+  context.fillText(t.equity.toUpperCase(), rightX + (half - 3) / 2, equityCenterY - 38);
+  context.font = '900 34px system-ui, "Noto Sans", sans-serif';
+  context.fillText(amount(balance.equity, currency), rightX + (half - 3) / 2, equityCenterY + 8);
+  context.font = '800 16px system-ui, "Noto Sans", sans-serif';
+  context.fillText(`${balance.equityRatio.toFixed(1)}%`, rightX + (half - 3) / 2, equityCenterY + 38);
   context.textAlign = "left";
 
-  let progressY = totalBarY + totalBarH + 24;
+  // Integrated bottom totals: no A/B labels and no second outer border.
+  const totalY = mainBottomY + 6;
+  context.fillStyle = "#edf3fb";
+  context.fillRect(squareX, totalY, half - 3, totalBarH);
+  context.fillRect(squareX + half + 3, totalY, half - 3, totalBarH);
+  context.fillStyle = navy;
+  context.textAlign = "center";
+  context.font = '900 18px system-ui, "Noto Sans", sans-serif';
+  context.fillText(`${t.totalAssets} = ${amount(balance.assets, currency, true)}`, squareX + half / 2, totalY + 45);
+  context.fillText(`${t.totalFunding} = ${amount(fundingTotal, currency, true)}`, squareX + half + half / 2, totalY + 45);
+  context.textAlign = "left";
+
+  let progressY = squareY + squareSize + 24;
   if (!showLiabilityDetailsInside) {
     const detailY = progressY;
     context.fillStyle = "#fff7f5";
