@@ -178,6 +178,11 @@ public class MainActivity extends Activity {
 
     public class AndroidBridge {
         @JavascriptInterface
+        public String getEdition() {
+            return BuildConfig.APP_EDITION;
+        }
+
+        @JavascriptInterface
         public void sharePdf(String base64, String filename) {
             byte[] data = decodePdf(base64);
             if (data == null) {
