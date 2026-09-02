@@ -14,6 +14,26 @@ android {
         versionName = "2.0.0"
     }
 
+    buildFeatures {
+        buildConfig = true
+    }
+
+    flavorDimensions += "edition"
+    productFlavors {
+        create("free") {
+            dimension = "edition"
+            applicationIdSuffix = ".free"
+            versionNameSuffix = "-free"
+            buildConfigField("String", "APP_EDITION", "\"free\"")
+            resValue("string", "app_name", "Balance Sheet Square Free")
+        }
+        create("paid") {
+            dimension = "edition"
+            buildConfigField("String", "APP_EDITION", "\"paid\"")
+            resValue("string", "app_name", "Balance Sheet Square")
+        }
+    }
+
     buildTypes {
         debug {
             applicationIdSuffix = ".v2test"
