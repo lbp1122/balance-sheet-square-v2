@@ -235,9 +235,25 @@ export async function createReportPdf({ profile = {}, calculatedAge = null, valu
   context.font = '800 14px system-ui, "Noto Sans", sans-serif';
   context.fillText(`${balance.equityRatio.toFixed(1)}%`, rightX + 34, squareY + squareSize - 43);
 
-  let progressY = 1265;
+  // A/B totals beneath the Balance Sheet Square.
+  const totalBarY = squareY + squareSize + 16;
+  const totalBarH = 72;
+  const fundingTotal = balance.liabilities + balance.equity;
+  context.fillStyle = navy;
+  context.fillRect(squareX - 7, totalBarY - 7, squareSize + 14, totalBarH + 14);
+  context.fillStyle = "#edf3fb";
+  context.fillRect(squareX, totalBarY, half - 3, totalBarH);
+  context.fillRect(squareX + half + 3, totalBarY, half - 3, totalBarH);
+  context.fillStyle = navy;
+  context.font = '900 16px system-ui, "Noto Sans", sans-serif';
+  context.textAlign = "center";
+  context.fillText(`A = ${t.totalAssets} = ${amount(balance.assets, currency, true)}`, squareX + half / 2, totalBarY + 43);
+  context.fillText(`B = ${t.liabilities} + ${t.equity} = ${amount(fundingTotal, currency, true)}`, squareX + half + half / 2, totalBarY + 43);
+  context.textAlign = "left";
+
+  let progressY = totalBarY + totalBarH + 24;
   if (!showLiabilityDetailsInside) {
-    const detailY = 1265;
+    const detailY = progressY;
     context.fillStyle = "#fff7f5";
     context.fillRect(64, detailY, 1112, 150);
     context.fillStyle = red;
@@ -257,7 +273,7 @@ export async function createReportPdf({ profile = {}, calculatedAge = null, valu
       context.fillText(amount(safeNumber(values[key]), currency), x + 465, y);
       context.textAlign = "left";
     });
-    progressY = 1435;
+    progressY = detailY + 170;
   }
 
   // progressY is positioned adaptively above.
@@ -286,7 +302,7 @@ export async function createReportPdf({ profile = {}, calculatedAge = null, valu
     });
   }
 
-  const retirementY = 1580;
+  const retirementY = Math.max(progressY + 150, 1580);
   const drawRetirement = () => {
     context.fillStyle = navy;
     context.fillRect(64, retirementY, 1112, 112);
