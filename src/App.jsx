@@ -31,6 +31,12 @@ function Icon({ name }) {
 }
 
 function Field({ label, value, prefix, suffix, onChange, min = 0, max }) {
+  const cleanInput = (rawValue) => {
+    const sanitized = rawValue.replace(/[^0-9.]/g, "");
+    const [whole = "", ...decimals] = sanitized.split(".");
+    return decimals.length ? `${whole}.${decimals.join("")}` : whole;
+  };
+
   return (
     <label className="field">
       <span className="field-label">{label}</span>
@@ -40,11 +46,15 @@ function Field({ label, value, prefix, suffix, onChange, min = 0, max }) {
           type="text"
           inputMode="decimal"
           value={value}
-          onFocus={(event) => event.currentTarget.select()}
           onChange={(event) => {
-            const cleaned = event.target.value.replace(/[^0-9.]/g, "");
-            if (max !== undefined && safeNumber(cleaned) > max) onChange(String(max));
-            else if (safeNumber(cleaned) < min) onChange(String(min));
+            onChange(cleanInput(event.target.value));
+          }}
+          onBlur={(event) => {
+            const cleaned = cleanInput(event.target.value);
+            const numeric = safeNumber(cleaned);
+            if (cleaned === "") onChange(String(min));
+            else if (max !== undefined && numeric > max) onChange(String(max));
+            else if (numeric < min) onChange(String(min));
             else onChange(cleaned);
           }}
           aria-label={label}
