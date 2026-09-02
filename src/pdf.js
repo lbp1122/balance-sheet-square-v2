@@ -134,7 +134,7 @@ export async function createReportPdf({ profile = {}, calculatedAge = null, valu
   });
 
   // True 1:1 Balance Sheet Square, including the bottom total row.
-  const squareSize = 850;
+  const squareSize = 780;
   const squareX = (width - squareSize) / 2;
   const squareY = 385;
   const half = squareSize / 2;
@@ -257,7 +257,7 @@ export async function createReportPdf({ profile = {}, calculatedAge = null, valu
   if (!showLiabilityDetailsInside && balance.liabilities > 0) {
     const detailY = progressY;
     context.fillStyle = "#fff7f5";
-    context.fillRect(64, detailY, 1112, 150);
+    context.fillRect(64, detailY, 1112, 132);
     context.fillStyle = red;
     context.font = '900 20px system-ui, "Noto Sans", sans-serif';
     context.fillText(t.liabilitiesDetails.toUpperCase(), 86, detailY + 34);
@@ -265,7 +265,7 @@ export async function createReportPdf({ profile = {}, calculatedAge = null, valu
       const col = index % 2;
       const row = Math.floor(index / 2);
       const x = 86 + col * 535;
-      const y = detailY + 78 + row * 44;
+      const y = detailY + 72 + row * 38;
       context.fillStyle = muted;
       context.font = '650 16px system-ui, "Noto Sans", sans-serif';
       context.fillText(t[key], x, y);
@@ -275,7 +275,7 @@ export async function createReportPdf({ profile = {}, calculatedAge = null, valu
       context.fillText(amount(safeNumber(values[key]), currency), x + 465, y);
       context.textAlign = "left";
     });
-    progressY = detailY + 170;
+    progressY = detailY + 148;
   }
 
   // Key ratios directly beneath the Balance Sheet Square.
@@ -296,80 +296,86 @@ export async function createReportPdf({ profile = {}, calculatedAge = null, valu
     const rowCount = row === 0 ? 3 : 2;
     const itemW = row === 0 ? ratioW : (1112 - ratioGap) / 2;
     const x = 64 + col * (itemW + ratioGap);
-    const y = ratioY + row * 110;
+    const y = ratioY + row * 94;
     context.fillStyle = "#ffffff";
-    context.fillRect(x, y, itemW, 102);
+    context.fillRect(x, y, itemW, 86);
     context.fillStyle = muted;
     context.font = '850 14px system-ui, "Noto Sans", sans-serif';
-    context.fillText(String(label).toUpperCase(), x + 16, y + 26);
+    context.fillText(String(label).toUpperCase(), x + 16, y + 23);
     context.fillStyle = navy;
     context.font = '900 27px system-ui, "Noto Sans", sans-serif';
-    context.fillText(String(value), x + 16, y + 61);
+    context.fillText(String(value), x + 16, y + 55);
     context.fillStyle = muted;
     context.font = '700 13px system-ui, "Noto Sans", sans-serif';
-    context.fillText(String(note), x + 16, y + 84);
+    context.fillText(String(note), x + 16, y + 75);
   });
-  progressY = ratioY + 220;
+  progressY = ratioY + 188;
 
-  // progressY is positioned adaptively above.
-  context.fillStyle = "#ffffff";
-  context.fillRect(64, progressY, 1112, 128);
-  context.fillStyle = navy;
-  context.font = '900 17px system-ui, "Noto Sans", sans-serif';
-  context.fillText(t.quarterlyProgress.toUpperCase(), 86, progressY + 31);
-  context.fillStyle = muted;
-  context.font = '500 13px system-ui, "Noto Sans", sans-serif';
-  context.fillText(isFree ? t.progressLimitFree : t.progressLimitPaid, 86, progressY + 55);
-  const rows = quarterlyHistory.slice(-2);
-  if (!rows.length) {
-    context.font = '600 14px system-ui, "Noto Sans", sans-serif';
-    context.fillText(t.noSnapshots, 86, progressY + 91);
-  } else {
-    rows.forEach((item, index) => {
-      const y = progressY + 84 + index * 28;
-      context.fillStyle = navy;
-      context.font = '800 13px system-ui, "Noto Sans", sans-serif';
-      context.fillText(item.key, 86, y);
-      context.fillStyle = muted;
-      context.font = '700 13px system-ui, "Noto Sans", sans-serif';
-      context.fillText(`${t.equity}: ${amount(item.equity, currency)}`, 230, y);
-      context.fillText(`${t.liabilities}: ${amount(item.liabilities, currency)}`, 590, y);
-    });
-  }
-
-  const retirementY = Math.max(progressY + 150, 1640);
+  // Retirement / upgrade section comes before Quarterly Progress so it is never pushed off the page.
+  const retirementY = progressY + 8;
+  const retirementH = 104;
   const drawRetirement = () => {
     context.fillStyle = navy;
-    context.fillRect(64, retirementY, 1112, 112);
+    context.fillRect(64, retirementY, 1112, retirementH);
     context.fillStyle = "#aebdd3";
     context.font = '800 14px system-ui, "Noto Sans", sans-serif';
-    context.fillText(t.retirementTitle.toUpperCase(), 86, retirementY + 31);
+    context.fillText(t.retirementTitle.toUpperCase(), 86, retirementY + 28);
     context.fillStyle = retirement.onTrack ? teal : red;
-    context.font = '900 25px system-ui, "Noto Sans", sans-serif';
-    context.fillText(retirement.onTrack ? t.onTrack : t.needsWork, 86, retirementY + 72);
+    context.font = '900 24px system-ui, "Noto Sans", sans-serif';
+    context.fillText(retirement.onTrack ? t.onTrack : t.needsWork, 86, retirementY + 68);
     context.fillStyle = "#ffffff";
     context.font = '800 15px system-ui, "Noto Sans", sans-serif';
     context.textAlign = "right";
-    context.fillText(`${t.projectedFund}: ${amount(retirement.projectedFund, currency)}`, 1145, retirementY + 48);
-    context.fillText(`${t.lastsUntil}: ${t.age} ${retirement.lastsUntil}`, 1145, retirementY + 78);
+    context.fillText(`${t.projectedFund}: ${amount(retirement.projectedFund, currency)}`, 1145, retirementY + 43);
+    context.fillText(`${t.lastsUntil}: ${t.age} ${retirement.lastsUntil}`, 1145, retirementY + 72);
     context.textAlign = "left";
   };
 
   if (isFree) {
     context.save();
-    context.filter = "blur(9px)";
+    context.filter = "blur(8px)";
     drawRetirement();
     context.restore();
-    context.fillStyle = "rgba(11,31,58,.56)";
-    context.fillRect(64, retirementY, 1112, 112);
+    context.fillStyle = "rgba(11,31,58,.60)";
+    context.fillRect(64, retirementY, 1112, retirementH);
     context.fillStyle = "#ffffff";
     context.textAlign = "center";
-    context.font = '900 23px system-ui, "Noto Sans", sans-serif';
-    context.fillText(t.paidEdition, 620, retirementY + 50);
-    context.font = '700 14px system-ui, "Noto Sans", sans-serif';
-    context.fillText(t.upgradeMessage, 620, retirementY + 78);
+    context.font = '900 24px system-ui, "Noto Sans", sans-serif';
+    context.fillText(t.paidEdition, 620, retirementY + 42);
+    context.font = '700 15px system-ui, "Noto Sans", sans-serif';
+    wrapText(context, t.upgradeMessage, 620, retirementY + 70, 760, 19, 2);
     context.textAlign = "left";
-  } else drawRetirement();
+  } else {
+    drawRetirement();
+  }
+
+  // Quarterly progress sits directly below retirement / upgrade.
+  progressY = retirementY + retirementH + 10;
+  const quarterlyH = 102;
+  context.fillStyle = "#ffffff";
+  context.fillRect(64, progressY, 1112, quarterlyH);
+  context.fillStyle = navy;
+  context.font = '900 16px system-ui, "Noto Sans", sans-serif';
+  context.fillText(t.quarterlyProgress.toUpperCase(), 86, progressY + 28);
+  context.fillStyle = muted;
+  context.font = '500 12px system-ui, "Noto Sans", sans-serif';
+  context.fillText(isFree ? t.progressLimitFree : t.progressLimitPaid, 86, progressY + 49);
+  const rows = quarterlyHistory.slice(-2);
+  if (!rows.length) {
+    context.font = '600 13px system-ui, "Noto Sans", sans-serif';
+    context.fillText(t.noSnapshots, 86, progressY + 76);
+  } else {
+    rows.forEach((item, index) => {
+      const y = progressY + 70 + index * 22;
+      context.fillStyle = navy;
+      context.font = '800 12px system-ui, "Noto Sans", sans-serif';
+      context.fillText(item.key, 86, y);
+      context.fillStyle = muted;
+      context.font = '700 12px system-ui, "Noto Sans", sans-serif';
+      context.fillText(`${t.equity}: ${amount(item.equity, currency)}`, 230, y);
+      context.fillText(`${t.liabilities}: ${amount(item.liabilities, currency)}`, 590, y);
+    });
+  }
 
   context.fillStyle = muted;
   context.font = '500 12px system-ui, "Noto Sans", sans-serif';
