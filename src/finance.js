@@ -263,13 +263,13 @@ export function calculateRetirement(input) {
   };
 }
 
-export function amount(value, currency = "RM", compact = false) {
+export function amount(value, currency = "MYR", compact = false) {
   const number = Number(value) || 0;
-  const prefix = currency === "RM" ? "RM" : currency === "USD" ? "$" : "¥";
+  const prefix = currency === "MYR" ? "MYR" : currency === "USD" ? "USD" : "CNY";
   const abs = Math.abs(number);
   let body;
   if (compact && abs >= 1000000) body = `${(abs / 1000000).toFixed(abs >= 10000000 ? 1 : 2)}m`;
   else if (compact && abs >= 1000) body = `${(abs / 1000).toFixed(abs >= 100000 ? 0 : 1)}k`;
-  else body = abs.toLocaleString(currency === "RM" ? "en-MY" : "en-US", { maximumFractionDigits: 0 });
+  else body = abs.toLocaleString(currency === "MYR" ? "en-MY" : "en-US", { maximumFractionDigits: 0 });
   return `${number < 0 ? "−" : ""}${prefix}${body}`;
 }
