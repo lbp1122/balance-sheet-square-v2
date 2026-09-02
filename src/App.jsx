@@ -669,14 +669,27 @@ export default function App() {
     </section>
   );
 
-  const ReportPage = () => (
+  const ReportPage = () => {
+    const equityComment = balance.equity < 0 ? t.attention : balance.equityRatio >= 60 ? t.strong : balance.equityRatio >= 30 ? t.moderate : t.attention;
+    const debtAssetComment = balance.liabilities === 0 ? t.debtFree : balance.debtAsset <= 35 ? t.strong : balance.debtAsset <= 60 ? t.moderate : t.attention;
+    const equityRatioComment = balance.equityRatio >= 60 ? t.strong : balance.equityRatio >= 30 ? t.moderate : t.attention;
+    const debtEquityComment = balance.liabilities === 0 ? t.debtFree : balance.debtEquity !== null && balance.debtEquity <= 0.5 ? t.strong : balance.debtEquity !== null && balance.debtEquity <= 1 ? t.moderate : t.attention;
+    const runwayComment = balance.runway >= 12 ? t.strong : balance.runway >= 6 ? t.moderate : t.attention;
+
+    return (
     <section className="content-section page-section report-page">
       <PageHeader eyebrow="07" title={t.reportTitle} hint={t.reportHint} status={<StatusPill tone="teal"><Icon name="lock"/>{t.local}</StatusPill>}/>
       <div className="report-layout">
         <div className="report-preview">
           <div className="report-preview-head"><img src="./app-icon-192.png" alt=""/><div><span>{t.brand}</span><h2>{profile.name ? `${profile.name}: ${t.wealthReport}` : t.wealthReport}</h2><small>{t.age}: ${calculatedAge ?? "—"} · ${t.professionLabel}: ${profile.profession || "—"}<br/>{t.asAt} ${new Date().toLocaleDateString(language === "en" ? "en-GB" : language === "ms" ? "ms-MY" : "zh-CN")}</small></div></div>
           <div className="report-summary"><Stat label={t.totalAssets} value={amount(balance.assets, currency, true)} tone="teal"/><Stat label={t.liabilities} value={amount(balance.liabilities, currency, true)} tone={debtTone}/><Stat label={t.netWorth} value={amount(balance.equity, currency, true)} tone={balance.equity >= 0 ? "blue" : "red"}/></div>
-          <ReportBalanceSquare values={values} balance={balance} currency={currency} t={t}/>
+          <div className="report-ratios">
+            <Stat label={t.equity} value={amount(balance.equity, currency, true)} note={equityComment} tone={balance.equity >= 0 ? "teal" : "red"}/>
+            <Stat label={t.debtAsset} value={`${balance.debtAsset.toFixed(1)}%`} note={debtAssetComment} tone={debtTone}/>
+            <Stat label={t.equityRatio} value={`${balance.equityRatio.toFixed(1)}%`} note={equityRatioComment} tone={equityTone}/>
+            <Stat label={t.debtEquity} value={balance.debtEquity === null ? "—" : `${balance.debtEquity.toFixed(2)}×`} note={debtEquityComment} tone={balance.debtEquity !== null && balance.debtEquity <= 0.5 ? "teal" : balance.debtEquity !== null && balance.debtEquity <= 1 ? "gold" : "red"}/>
+            <Stat label={t.runway} value={`${balance.runway.toFixed(1)}`} note={`${t.months} · ${runwayComment}`} tone={balance.runway >= 12 ? "teal" : balance.runway >= 6 ? "gold" : "red"}/>
+          </div>
           <div className={`report-retirement-shell ${isFree ? "is-free" : ""}`}>
             <div className="report-retirement"><span>{t.retirementTitle}</span><strong>{retirement.onTrack ? t.onTrack : t.needsWork}</strong><b>{t.projectedFund}: {amount(retirement.projectedFund, currency, true)}</b></div>
             {isFree && <button type="button" className="report-upgrade-overlay" onClick={() => setUpgradeOpen(true)}><Icon name="lock"/><strong>{t.paidEdition}</strong><span>{t.upgradeMessage}</span></button>}
@@ -708,7 +721,8 @@ export default function App() {
       </div>
       <PageActions t={t} onNavigate={navigate} back="scenarios"/>
     </section>
-  );
+    );
+  };
 
   return (
     <div className="app-shell">
