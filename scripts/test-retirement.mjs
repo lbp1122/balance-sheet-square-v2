@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { calculateRetirement } from "../src/finance.js";
 import { defaultRetirement } from "../src/data.js";
 
-const plan = (overrides = {}) => ({ ...defaultRetirement, ...overrides });
+const plan = (overrides = {}) => ({ ...defaultRetirement, preRetirementIncome: undefined, preRetirementExpenses: undefined, retirementContributionSource: undefined, ...overrides });
 
 const effectiveReturn = calculateRetirement(plan({
   currentAge: 40,
