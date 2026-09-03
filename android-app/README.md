@@ -5,13 +5,14 @@ This is the V2 Android update containing the redesigned multi-view Balance Sheet
 ## Features
 
 - Android package: `com.lbp.balancesheetsquare`
-- Version code 6 / version name 2.2.2, suitable as an update to the existing closed-test app
+- Version code 7 / version name 2.3.0, suitable as an update to the existing closed-test app
 - Minimum Android 7.0 (API 24)
 - Targets Android 16 (API 36)
 - Local storage for balance-sheet and retirement-planning figures
 - Fully offline calculation from the first launch
 - Native Android PDF save picker and share sheet
-- No ads, analytics, sign-in, network permission, or sensitive permissions
+- One Free-to-Paid package using the Google Play one-time product `bss_full_lifetime`
+- No ads, analytics, sign-in, or sensitive permissions
 
 ## Open in Android Studio
 

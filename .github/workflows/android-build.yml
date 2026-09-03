@@ -53,16 +53,14 @@ jobs:
         with:
           gradle-version: "8.11.1"
 
-      - name: Build Free and Paid APKs and AABs
+      - name: Build Free-to-Paid APK and AAB
         run: |
-          gradle -p android-app assembleFreeDebug assemblePaidDebug bundleFreeRelease bundlePaidRelease
+          gradle -p android-app assembleDebug bundleRelease
 
-      - name: Rename APKs and bundles
+      - name: Rename APK and bundle
         run: |
-          cp android-app/app/build/outputs/apk/free/debug/app-free-debug.apk balance-sheet-square-free.apk
-          cp android-app/app/build/outputs/apk/paid/debug/app-paid-debug.apk balance-sheet-square-paid.apk
-          cp android-app/app/build/outputs/bundle/freeRelease/app-free-release.aab balance-sheet-square-free.aab
-          cp android-app/app/build/outputs/bundle/paidRelease/app-paid-release.aab balance-sheet-square-paid.aab
+          cp android-app/app/build/outputs/apk/debug/app-debug.apk balance-sheet-square-free-to-paid.apk
+          cp android-app/app/build/outputs/bundle/release/app-release.aab balance-sheet-square-free-to-paid.aab
 
       - name: Read app version
         id: app_version
@@ -77,31 +75,17 @@ jobs:
           name: Balance Sheet Square v${{ steps.app_version.outputs.version_name }}
           generate_release_notes: true
           files: |
-            balance-sheet-square-free.apk
-            balance-sheet-square-paid.apk
-            balance-sheet-square-free.aab
-            balance-sheet-square-paid.aab
+            balance-sheet-square-free-to-paid.apk
+            balance-sheet-square-free-to-paid.aab
 
-      - name: Upload Free APK
+      - name: Upload Free-to-Paid APK
         uses: actions/upload-artifact@v4
         with:
-          name: balance-sheet-square-free-apk
-          path: balance-sheet-square-free.apk
+          name: balance-sheet-square-free-to-paid-apk
+          path: balance-sheet-square-free-to-paid.apk
 
-      - name: Upload Paid APK
+      - name: Upload Free-to-Paid AAB
         uses: actions/upload-artifact@v4
         with:
-          name: balance-sheet-square-paid-apk
-          path: balance-sheet-square-paid.apk
-
-      - name: Upload Free AAB
-        uses: actions/upload-artifact@v4
-        with:
-          name: balance-sheet-square-free-aab
-          path: balance-sheet-square-free.aab
-
-      - name: Upload Paid AAB
-        uses: actions/upload-artifact@v4
-        with:
-          name: balance-sheet-square-paid-aab
-          path: balance-sheet-square-paid.aab
+          name: balance-sheet-square-free-to-paid-aab
+          path: balance-sheet-square-free-to-paid.aab

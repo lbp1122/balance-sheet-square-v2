@@ -22,6 +22,18 @@ import android.widget.Toast;
 import androidx.core.content.FileProvider;
 import androidx.webkit.WebViewAssetLoader;
 
+import com.android.billingclient.api.AcknowledgePurchaseParams;
+import com.android.billingclient.api.BillingClient;
+import com.android.billingclient.api.BillingClientStateListener;
+import com.android.billingclient.api.BillingFlowParams;
+import com.android.billingclient.api.BillingResult;
+import com.android.billingclient.api.PendingPurchasesParams;
+import com.android.billingclient.api.ProductDetails;
+import com.android.billingclient.api.Purchase;
+import com.android.billingclient.api.PurchasesUpdatedListener;
+import com.android.billingclient.api.QueryProductDetailsParams;
+import com.android.billingclient.api.QueryPurchasesParams;
+
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -29,18 +41,25 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.Collections;
+import java.util.List;
 
-public class MainActivity extends Activity {
+public class MainActivity extends Activity implements PurchasesUpdatedListener {
     private static final String APP_URL = "https://appassets.androidplatform.net/assets/www/index.html";
     private static final String APP_PREFIX = "https://appassets.androidplatform.net/assets/www/";
     private static final int REQUEST_SAVE_PDF = 4102;
     private static final int MAX_PDF_BYTES = 12 * 1024 * 1024;
+    private static final String FULL_VERSION_PRODUCT_ID = "bss_full_lifetime";
 
     private WebView webView;
     private WebViewAssetLoader assetLoader;
     private byte[] pendingPdf;
     private String pendingFilename;
     private boolean showingOfflinePage;
+    private BillingClient billingClient;
+    private ProductDetails fullVersionProduct;
+    private boolean premiumUnlocked;
+    private boolean manualRestore;
 
     @Override
     @SuppressLint({"SetJavaScriptEnabled", "AddJavascriptInterface"})
@@ -57,6 +76,8 @@ public class MainActivity extends Activity {
             return insets;
         });
         setContentView(webView);
+
+        initializeBilling();
 
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
@@ -89,6 +110,150 @@ public class MainActivity extends Activity {
                 this::handleBack
             );
         }
+    }
+
+    private void initializeBilling() {
+        billingClient = BillingClient.newBuilder(this)
+            .setListener(this)
+            .enablePendingPurchases(PendingPurchasesParams.newBuilder().enableOneTimeProducts().build())
+            .enableAutoServiceReconnection()
+            .build();
+        connectBilling();
+    }
+
+    private void connectBilling() {
+        if (billingClient == null || billingClient.isReady()) return;
+        billingClient.startConnection(new BillingClientStateListener() {
+            @Override
+            public void onBillingSetupFinished(BillingResult billingResult) {
+                if (billingResult.getResponseCode() == BillingClient.BillingResponseCode.OK) {
+                    queryFullVersionProduct();
+                    queryOwnedPurchases(false);
+                } else {
+                    notifyEntitlement(premiumUnlocked, "billingUnavailable");
+                }
+            }
+
+            @Override
+            public void onBillingServiceDisconnected() {
+                notifyEntitlement(premiumUnlocked, "billingUnavailable");
+            }
+        });
+    }
+
+    private void queryFullVersionProduct() {
+        QueryProductDetailsParams.Product product = QueryProductDetailsParams.Product.newBuilder()
+            .setProductId(FULL_VERSION_PRODUCT_ID)
+            .setProductType(BillingClient.ProductType.INAPP)
+            .build();
+        QueryProductDetailsParams params = QueryProductDetailsParams.newBuilder()
+            .setProductList(Collections.singletonList(product))
+            .build();
+        billingClient.queryProductDetailsAsync(params, (billingResult, result) -> {
+            if (billingResult.getResponseCode() == BillingClient.BillingResponseCode.OK
+                && result.getProductDetailsList() != null
+                && !result.getProductDetailsList().isEmpty()) {
+                fullVersionProduct = result.getProductDetailsList().get(0);
+            }
+        });
+    }
+
+    private void queryOwnedPurchases(boolean requestedByUser) {
+        manualRestore = requestedByUser;
+        if (billingClient == null || !billingClient.isReady()) {
+            connectBilling();
+            if (requestedByUser) notifyEntitlement(premiumUnlocked, "billingConnecting");
+            return;
+        }
+        QueryPurchasesParams params = QueryPurchasesParams.newBuilder()
+            .setProductType(BillingClient.ProductType.INAPP)
+            .build();
+        billingClient.queryPurchasesAsync(params, (billingResult, purchases) -> {
+            if (billingResult.getResponseCode() != BillingClient.BillingResponseCode.OK) {
+                if (manualRestore) notifyEntitlement(premiumUnlocked, "billingUnavailable");
+                manualRestore = false;
+                return;
+            }
+            boolean found = false;
+            for (Purchase purchase : purchases) {
+                if (purchase.getProducts().contains(FULL_VERSION_PRODUCT_ID)) {
+                    found = true;
+                    processPurchase(purchase);
+                }
+            }
+            if (!found) {
+                premiumUnlocked = false;
+                notifyEntitlement(false, manualRestore ? "noPurchaseFound" : "");
+            }
+            manualRestore = false;
+        });
+    }
+
+    private void processPurchase(Purchase purchase) {
+        if (!purchase.getProducts().contains(FULL_VERSION_PRODUCT_ID)) return;
+        if (purchase.getPurchaseState() == Purchase.PurchaseState.PENDING) {
+            notifyEntitlement(false, "purchasePending");
+            return;
+        }
+        if (purchase.getPurchaseState() != Purchase.PurchaseState.PURCHASED) return;
+
+        premiumUnlocked = true;
+        notifyEntitlement(true, "purchaseRestored");
+        if (!purchase.isAcknowledged()) {
+            AcknowledgePurchaseParams params = AcknowledgePurchaseParams.newBuilder()
+                .setPurchaseToken(purchase.getPurchaseToken())
+                .build();
+            billingClient.acknowledgePurchase(params, billingResult -> {
+                if (billingResult.getResponseCode() != BillingClient.BillingResponseCode.OK) {
+                    notifyEntitlement(true, "billingUnavailable");
+                }
+            });
+        }
+    }
+
+    @Override
+    public void onPurchasesUpdated(BillingResult billingResult, List<Purchase> purchases) {
+        if (billingResult.getResponseCode() == BillingClient.BillingResponseCode.OK && purchases != null) {
+            for (Purchase purchase : purchases) processPurchase(purchase);
+        } else if (billingResult.getResponseCode() == BillingClient.BillingResponseCode.USER_CANCELED) {
+            notifyEntitlement(premiumUnlocked, "purchaseCancelled");
+        } else {
+            notifyEntitlement(premiumUnlocked, "billingUnavailable");
+        }
+    }
+
+    private void launchFullVersionPurchase() {
+        if (billingClient == null || !billingClient.isReady()) {
+            connectBilling();
+            notifyEntitlement(premiumUnlocked, "billingConnecting");
+            return;
+        }
+        if (fullVersionProduct == null) {
+            queryFullVersionProduct();
+            notifyEntitlement(premiumUnlocked, "billingUnavailable");
+            return;
+        }
+        BillingFlowParams.ProductDetailsParams.Builder productParams =
+            BillingFlowParams.ProductDetailsParams.newBuilder().setProductDetails(fullVersionProduct);
+        List<ProductDetails.OneTimePurchaseOfferDetails> offers = fullVersionProduct.getOneTimePurchaseOfferDetailsList();
+        if (offers != null && !offers.isEmpty() && offers.get(0).getOfferToken() != null) {
+            productParams.setOfferToken(offers.get(0).getOfferToken());
+        }
+        BillingFlowParams flowParams = BillingFlowParams.newBuilder()
+            .setProductDetailsParamsList(Collections.singletonList(productParams.build()))
+            .build();
+        BillingResult result = billingClient.launchBillingFlow(this, flowParams);
+        if (result.getResponseCode() != BillingClient.BillingResponseCode.OK) {
+            notifyEntitlement(premiumUnlocked, "billingUnavailable");
+        }
+    }
+
+    private void notifyEntitlement(boolean isPremium, String status) {
+        if (webView == null) return;
+        String safeStatus = status == null ? "" : status.replace("\\", "\\\\").replace("'", "\\'");
+        String script = "window.dispatchEvent(new CustomEvent('bss-entitlement-changed',{detail:{isPremium:"
+            + isPremium + ",status:'" + safeStatus + "'}}));";
+        runOnUiThread(() -> webView.evaluateJavascript(script, null));
     }
 
     private void handleBack() {
@@ -168,6 +333,7 @@ public class MainActivity extends Activity {
         @Override
         public void onPageFinished(WebView view, String url) {
             if (url != null && url.startsWith(APP_PREFIX)) showingOfflinePage = false;
+            notifyEntitlement(premiumUnlocked, "");
         }
 
         @Override
@@ -179,7 +345,22 @@ public class MainActivity extends Activity {
     public class AndroidBridge {
         @JavascriptInterface
         public String getEdition() {
-            return BuildConfig.APP_EDITION;
+            return premiumUnlocked ? "paid" : "free";
+        }
+
+        @JavascriptInterface
+        public boolean isPremium() {
+            return premiumUnlocked;
+        }
+
+        @JavascriptInterface
+        public void purchaseFullVersion() {
+            runOnUiThread(MainActivity.this::launchFullVersionPurchase);
+        }
+
+        @JavascriptInterface
+        public void restorePurchases() {
+            runOnUiThread(() -> queryOwnedPurchases(true));
         }
 
         @JavascriptInterface
@@ -248,6 +429,7 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        if (billingClient != null) billingClient.endConnection();
         if (webView != null) {
             webView.removeJavascriptInterface("AndroidBridge");
             webView.stopLoading();

@@ -294,7 +294,7 @@ function ReportBalanceSquare({ values, balance, currency, t }) {
   );
 }
 
-function UpgradeModal({ open, t, onClose }) {
+function UpgradeModal({ open, t, onClose, onPurchase, onRestore, status }) {
   if (!open) return null;
   return (
     <div className="upgrade-backdrop" role="presentation" onClick={onClose}>
@@ -302,14 +302,18 @@ function UpgradeModal({ open, t, onClose }) {
         <span className="upgrade-lock"><Icon name="lock"/></span>
         <h2 id="upgrade-title">{t.upgradeTitle}</h2>
         <p>{t.upgradeMessage}</p>
-        <button type="button" className="button primary full" onClick={onClose}>{t.close}</button>
+        <button type="button" className="button primary full" onClick={onPurchase}>{t.unlockFullVersion}</button>
+        <button type="button" className="button secondary full" onClick={onRestore}>{t.restorePurchase}</button>
+        {status && <span className="action-status" aria-live="polite">{status}</span>}
+        <button type="button" className="button ghost full" onClick={onClose}>{t.close}</button>
       </div>
     </div>
   );
 }
 
 export default function App() {
-  const edition = window.AndroidBridge?.getEdition?.() === "free" ? "free" : "paid";
+  const [premiumUnlocked, setPremiumUnlocked] = useState(() => !window.AndroidBridge || window.AndroidBridge?.isPremium?.() === true || window.AndroidBridge?.getEdition?.() === "paid");
+  const edition = premiumUnlocked ? "paid" : "free";
   const isFree = edition === "free";
   const [page, setPage] = useState(() => routeFromHash());
   const [upgradeOpen, setUpgradeOpen] = useState(false);
@@ -327,12 +331,25 @@ export default function App() {
   const [activeScenario, setActiveScenario] = useState(0);
   const [hydrated, setHydrated] = useState(false);
   const [actionStatus, setActionStatus] = useState("");
+  const [billingStatus, setBillingStatus] = useState("");
   const [quarterlyHistory, setQuarterlyHistory] = useState([]);
   const [withdrawalEditorOpen, setWithdrawalEditorOpen] = useState(false);
   const [editingWithdrawalId, setEditingWithdrawalId] = useState(null);
   const [withdrawalDraft, setWithdrawalDraft] = useState({ age: String(defaultRetirement.retirementAge), amount: "", reason: "0" });
   const t = translations[language];
   const currencyPrefix = currency === "MYR" ? "MYR" : currency === "USD" ? "USD" : "CNY";
+
+  useEffect(() => {
+    const handleEntitlement = (event) => {
+      const detail = event?.detail || {};
+      if (typeof detail.isPremium === "boolean") setPremiumUnlocked(detail.isPremium);
+      if (detail.status && t[detail.status]) setBillingStatus(t[detail.status]);
+      else if (detail.status) setBillingStatus(detail.status);
+    };
+    window.addEventListener("bss-entitlement-changed", handleEntitlement);
+    window.AndroidBridge?.restorePurchases?.();
+    return () => window.removeEventListener("bss-entitlement-changed", handleEntitlement);
+  }, [t]);
 
   useEffect(() => {
     try {
@@ -555,6 +572,24 @@ export default function App() {
       if (error?.name !== "AbortError") setActionStatus(t.shareUnavailable);
     }
     window.setTimeout(() => setActionStatus(""), 4200);
+  };
+
+  const purchaseFullVersion = () => {
+    if (!window.AndroidBridge?.purchaseFullVersion) {
+      setBillingStatus(t.billingUnavailable);
+      return;
+    }
+    setBillingStatus(t.billingConnecting);
+    window.AndroidBridge.purchaseFullVersion();
+  };
+
+  const restoreFullVersion = () => {
+    if (!window.AndroidBridge?.restorePurchases) {
+      setBillingStatus(t.billingUnavailable);
+      return;
+    }
+    setBillingStatus(t.billingConnecting);
+    window.AndroidBridge.restorePurchases();
   };
 
   const desktopNav = [
@@ -947,7 +982,7 @@ export default function App() {
       <nav className="mobile-nav" aria-label="Mobile navigation">
         {mobileNav.map(([target, label]) => <NavButton key={target} page={target} current={page} label={label} onNavigate={navigate}/>) }
       </nav>
-      <UpgradeModal open={upgradeOpen} t={t} onClose={() => setUpgradeOpen(false)}/>
+      <UpgradeModal open={upgradeOpen} t={t} onClose={() => setUpgradeOpen(false)} onPurchase={purchaseFullVersion} onRestore={restoreFullVersion} status={billingStatus}/>
     </div>
   );
 }

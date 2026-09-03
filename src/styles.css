@@ -458,6 +458,8 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .upgrade-lock .icon { width: 28px; height: 28px; }
 .upgrade-modal h2 { margin: 0; color: var(--navy); font-size: 26px; }
 .upgrade-modal p { margin: 10px 0 22px; color: var(--muted); }
+.upgrade-modal .button + .button { margin-top: 10px; }
+.upgrade-modal .action-status { display: block; margin: 12px 0 2px; color: var(--muted); font-size: 13px; line-height: 1.45; }
 
 .page-actions { margin-top: 42px; padding-top: 24px; display: flex; justify-content: space-between; gap: 16px; border-top: 1px solid var(--line); }
 .site-footer { min-height: 86px; padding: 22px clamp(24px, 6vw, 90px); display: flex; align-items: center; justify-content: space-between; gap: 20px; color: #9eb0c9; background: var(--navy); }
