@@ -203,7 +203,7 @@ function PageActions({ t, onNavigate, back, next }) {
   );
 }
 
-function ProjectionChart({ data, retirementAge, currency, withdrawals = [] }) {
+function ProjectionChart({ data, retirementAge, currency, events = [] }) {
   const width = 760;
   const height = 240;
   const padding = 24;
@@ -225,10 +225,10 @@ function ProjectionChart({ data, retirementAge, currency, withdrawals = [] }) {
         <path d={path} className="chart-line"/>
         <line x1={retirementPoint.x} x2={retirementPoint.x} y1={padding} y2={height - padding} className="retire-line"/>
         <circle cx={retirementPoint.x} cy={retirementPoint.y} r="6" className="retire-dot"/>
-        {withdrawals.map((withdrawal) => {
-          const point = points.find((item) => item.age === Math.round(safeNumber(withdrawal.age)));
+        {events.map((moneyEvent) => {
+          const point = points.find((item) => item.age === Math.round(safeNumber(moneyEvent.age)));
           if (!point) return null;
-          return <g key={withdrawal.id}><line x1={point.x} x2={point.x} y1={padding} y2={height - padding} className="withdrawal-line"/><circle cx={point.x} cy={point.y} r="6" className="withdrawal-dot"/></g>;
+          return <g key={moneyEvent.id}><line x1={point.x} x2={point.x} y1={padding} y2={height - padding} className="withdrawal-line"/><circle cx={point.x} cy={point.y} r="6" className="withdrawal-dot"/></g>;
         })}
       </svg>
       <div className="chart-legend"><span>{data[0]?.age}</span><strong>{amount(max, currency, true)} max</strong><span>{data.at(-1)?.age}</span></div>
@@ -333,9 +333,9 @@ export default function App() {
   const [actionStatus, setActionStatus] = useState("");
   const [billingStatus, setBillingStatus] = useState("");
   const [quarterlyHistory, setQuarterlyHistory] = useState([]);
-  const [withdrawalEditorOpen, setWithdrawalEditorOpen] = useState(false);
-  const [editingWithdrawalId, setEditingWithdrawalId] = useState(null);
-  const [withdrawalDraft, setWithdrawalDraft] = useState({ age: String(defaultRetirement.retirementAge), amount: "", reason: "0" });
+  const [eventEditorOpen, setEventEditorOpen] = useState(false);
+  const [editingEventId, setEditingEventId] = useState(null);
+  const [eventDraft, setEventDraft] = useState({ type: "withdraw", age: String(defaultRetirement.retirementAge), month: "1", amount: "", reason: "0", destination: "cash" });
   const t = translations[language];
   const currencyPrefix = currency === "MYR" ? "MYR" : currency === "USD" ? "USD" : "CNY";
 
@@ -364,6 +364,10 @@ export default function App() {
         if (saved.retirementInput.cashSavings === undefined) migratedRetirement.cashSavings = savedValues.cash;
         if (saved.retirementInput.investmentSavings === undefined) migratedRetirement.investmentSavings = savedValues.investments;
         if (saved.retirementInput.retirementSavings === undefined) migratedRetirement.retirementSavings = savedValues.retirement;
+        if (saved.retirementInput.preRetirementExpenses === undefined) migratedRetirement.preRetirementExpenses = savedValues.monthlyExpenses;
+        if (saved.retirementInput.preRetirementIncome === undefined) migratedRetirement.preRetirementIncome = String(safeNumber(saved.retirementInput.monthlySavings) + safeNumber(savedValues.monthlyExpenses) + safeNumber(saved.retirementInput.monthlyContribution));
+        if (saved.retirementInput.retirementContributionSource === undefined) migratedRetirement.retirementContributionSource = "income";
+        if (saved.retirementInput.moneyEvents === undefined) migratedRetirement.moneyEvents = (Array.isArray(saved.retirementInput.majorWithdrawals) ? saved.retirementInput.majorWithdrawals : []).map((item) => ({ ...item, type: "withdraw", destination: "cash" }));
         setRetirementInput(migratedRetirement);
       }
       if (translations[saved?.language]) setLanguage(saved.language);
@@ -406,10 +410,10 @@ export default function App() {
   const balance = useMemo(() => calculateBalance(values), [values]);
   const calculatedAge = useMemo(() => ageFromBirthDate(profile.dateOfBirth), [profile.dateOfBirth]);
   const retirement = useMemo(() => calculateRetirement(retirementInput), [retirementInput]);
-  const majorWithdrawals = Array.isArray(retirementInput.majorWithdrawals) ? retirementInput.majorWithdrawals : [];
+  const moneyEvents = Array.isArray(retirementInput.moneyEvents) ? retirementInput.moneyEvents : (Array.isArray(retirementInput.majorWithdrawals) ? retirementInput.majorWithdrawals.map((item) => ({ ...item, type: "withdraw", destination: "cash" })) : []);
   const baselineRetirement = useMemo(
-    () => majorWithdrawals.length ? calculateRetirement({ ...retirementInput, majorWithdrawals: [] }) : null,
-    [retirementInput, majorWithdrawals.length],
+    () => moneyEvents.length ? calculateRetirement({ ...retirementInput, moneyEvents: [], majorWithdrawals: [] }) : null,
+    [retirementInput, moneyEvents.length],
   );
 
   useEffect(() => {
@@ -433,6 +437,7 @@ export default function App() {
       return;
     }
     setRetirementInput((current) => ({ ...current, [key]: next }));
+    if (key === "preRetirementExpenses") setValues((current) => ({ ...current, monthlyExpenses: next }));
   };
   const loadScenario = (index) => {
     setValues({ ...scenarios[index].values });
@@ -446,7 +451,7 @@ export default function App() {
         cashSavings: String(safeNumber(values.cash)),
         investmentSavings: String(safeNumber(values.investments)),
         retirementSavings: String(safeNumber(values.retirement)),
-        monthlySpending: String(safeNumber(values.monthlyExpenses) || safeNumber(current.monthlySpending)),
+        preRetirementExpenses: String(safeNumber(values.monthlyExpenses) || safeNumber(current.preRetirementExpenses)),
       };
     });
   };
@@ -460,47 +465,27 @@ export default function App() {
     setRetirementView(view);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
-  const startAddWithdrawal = () => {
-    if (isFree && majorWithdrawals.length >= 1) {
-      setUpgradeOpen(true);
-      return;
-    }
-    setEditingWithdrawalId(null);
-    setWithdrawalDraft({ age: String(retirement.retirementAge), amount: "", reason: "0" });
-    setWithdrawalEditorOpen(true);
+  const startAddMoneyEvent = (type) => {
+    if (isFree && moneyEvents.length >= 1) { setUpgradeOpen(true); return; }
+    setEditingEventId(null);
+    setEventDraft({ type, age:String(retirement.retirementAge), month:"1", amount:"", reason:"0", destination:"cash" });
+    setEventEditorOpen(true);
   };
-  const startEditWithdrawal = (withdrawal) => {
-    setEditingWithdrawalId(withdrawal.id);
-    setWithdrawalDraft({ age: String(withdrawal.age), amount: String(withdrawal.amount), reason: String(withdrawal.reason || "0") });
-    setWithdrawalEditorOpen(true);
+  const startEditMoneyEvent = (moneyEvent) => {
+    setEditingEventId(moneyEvent.id);
+    setEventDraft({ type:moneyEvent.type==="add"?"add":"withdraw", age:String(moneyEvent.age), month:String(moneyEvent.month||1), amount:String(moneyEvent.amount), reason:String(moneyEvent.reason??"0"), destination:moneyEvent.destination||"cash" });
+    setEventEditorOpen(true);
   };
-  const saveMajorWithdrawal = () => {
-    const age = Math.min(retirement.planToAge - 1, Math.max(retirement.currentAge, Math.round(safeNumber(withdrawalDraft.age))));
-    const withdrawalAmount = safeNumber(withdrawalDraft.amount);
-    if (withdrawalAmount <= 0) return;
-    const item = {
-      id: editingWithdrawalId || `major-${Date.now()}`,
-      age,
-      month: 1,
-      amount: withdrawalAmount,
-      reason: String(withdrawalDraft.reason || "0"),
-    };
-    setRetirementInput((current) => {
-      const existing = Array.isArray(current.majorWithdrawals) ? current.majorWithdrawals : [];
-      const next = editingWithdrawalId
-        ? existing.map((withdrawal) => withdrawal.id === editingWithdrawalId ? item : withdrawal)
-        : [...existing, item];
-      return { ...current, majorWithdrawals: next.sort((a, b) => safeNumber(a.age) - safeNumber(b.age)) };
-    });
-    setWithdrawalEditorOpen(false);
-    setEditingWithdrawalId(null);
+  const saveMoneyEvent = () => {
+    const age=Math.min(retirement.planToAge-1,Math.max(retirement.currentAge,Math.round(safeNumber(eventDraft.age))));
+    const month=Math.min(12,Math.max(1,Math.round(safeNumber(eventDraft.month)||1)));
+    const eventAmount=safeNumber(eventDraft.amount); if(eventAmount<=0)return;
+    const item={id:editingEventId||`event-${Date.now()}`,type:eventDraft.type==="add"?"add":"withdraw",age,month,amount:eventAmount,reason:String(eventDraft.reason??"0"),destination:["cash","investments","retirement"].includes(eventDraft.destination)?eventDraft.destination:"cash"};
+    setRetirementInput((current)=>{const existing=Array.isArray(current.moneyEvents)?current.moneyEvents:(Array.isArray(current.majorWithdrawals)?current.majorWithdrawals.map((e)=>({...e,type:"withdraw",destination:"cash"})):[]);const next=editingEventId?existing.map((e)=>e.id===editingEventId?item:e):[...existing,item];return {...current,majorWithdrawals:[],moneyEvents:next.sort((a,b)=>(safeNumber(a.age)-safeNumber(b.age))||(safeNumber(a.month)-safeNumber(b.month)))};});
+    setEventEditorOpen(false);setEditingEventId(null);
   };
-  const removeMajorWithdrawal = (id) => {
-    setRetirementInput((current) => ({
-      ...current,
-      majorWithdrawals: (Array.isArray(current.majorWithdrawals) ? current.majorWithdrawals : []).filter((item) => item.id !== id),
-    }));
-  };
+  const removeMoneyEvent = (id) => setRetirementInput((current)=>({...current,majorWithdrawals:[],moneyEvents:(Array.isArray(current.moneyEvents)?current.moneyEvents:[]).filter((e)=>e.id!==id)}));
+
   const saveQuarterlySnapshot = () => {
     const now = new Date();
     const quarter = Math.floor(now.getMonth() / 3) + 1;
@@ -698,7 +683,7 @@ export default function App() {
             <div className="form-card-head"><span className={`big-icon ${isAssets ? "green" : "coral"}`}><Icon name={isAssets ? "assets" : "debts"}/></span><div><h2>{isAssets ? t.assetsPage : t.liabilities}</h2><strong>{amount(total, currency)}</strong></div></div>
             <div className="fields-list">
               {keys.map((key) => <Field key={key} label={t[key]} value={values[key]} prefix={currencyPrefix} onChange={(next) => updateValue(key, next)}/>) }
-              {!isAssets && <Field label={t.monthlyExpenses} value={values.monthlyExpenses} prefix={currencyPrefix} onChange={(next) => updateValue("monthlyExpenses", next)}/>} 
+ 
             </div>
           </div>
           <aside className="card guide-card">
@@ -714,32 +699,24 @@ export default function App() {
     );
   };
 
-  const MajorWithdrawalsSection = (title = t.majorWithdrawals, help = t.majorWithdrawalsHelp) => (
+  const OneTimeMoneyEventsSection = () => (
     <section className="major-withdrawals-card">
-      <div className="major-withdrawals-head">
-        <span className="big-icon gold"><Icon name="withdrawal"/></span>
-        <div><h3>{title}</h3><p>{help}</p></div>
-      </div>
-      {majorWithdrawals.length ? (
-        <div className="withdrawal-list">
-          {majorWithdrawals.map((withdrawal) => (
-            <article className="withdrawal-item" key={withdrawal.id}>
-              <div><strong>{t.age} {withdrawal.age} · {amount(withdrawal.amount, currency)}</strong><span>{t.withdrawalReasons[Number(withdrawal.reason) || 0]} · {t.automaticLowestReturn}</span></div>
-              <div><button type="button" onClick={() => startEditWithdrawal(withdrawal)}>{t.withdrawalEdit}</button><button type="button" onClick={() => removeMajorWithdrawal(withdrawal.id)}>{t.withdrawalRemove}</button></div>
-            </article>
-          ))}
-        </div>
-      ) : <p className="withdrawal-empty">{t.noMajorWithdrawals}</p>}
-      {withdrawalEditorOpen ? (
-        <div className="withdrawal-editor">
-          <Field label={t.withdrawalAge} value={withdrawalDraft.age} min={retirement.currentAge} max={retirement.planToAge - 1} onChange={(next) => setWithdrawalDraft((current) => ({ ...current, age: next }))}/>
-          <Field label={t.withdrawalAmount} value={withdrawalDraft.amount} prefix={currencyPrefix} onChange={(next) => setWithdrawalDraft((current) => ({ ...current, amount: next }))}/>
-          <label className="withdrawal-reason"><span>{t.withdrawalReason}</span><select value={withdrawalDraft.reason} onChange={(event) => setWithdrawalDraft((current) => ({ ...current, reason: event.target.value }))}>{t.withdrawalReasons.map((reason, index) => <option value={String(index)} key={reason}>{reason}</option>)}</select></label>
-          <p>{t.amountAtFutureAge}<br/><strong>{t.automaticLowestReturn}</strong></p>
-          <div className="withdrawal-editor-actions"><button type="button" className="button ghost" onClick={() => setWithdrawalEditorOpen(false)}>{t.cancel}</button><button type="button" className="button primary" onClick={saveMajorWithdrawal}>{t.saveWithdrawal}</button></div>
-        </div>
-      ) : <button type="button" className="button secondary full withdrawal-add" onClick={startAddWithdrawal}><Icon name="withdrawal"/>{t.addWithdrawal}</button>}
-      {isFree && <small className="withdrawal-limit">{t.freeWithdrawalLimit}</small>}
+      <div className="major-withdrawals-head"><span className="big-icon gold"><Icon name="withdrawal"/></span><div><h3>{t.oneTimeMoneyEvents}</h3><p>{t.oneTimeMoneyEventsHelp}</p></div></div>
+      {moneyEvents.length ? <div className="withdrawal-list">{moneyEvents.map((moneyEvent) => {
+        const add=moneyEvent.type==="add"; const reasons=add?t.addMoneyReasons:t.withdrawMoneyReasons; const destination=t.moneyDestinations[["cash","investments","retirement"].indexOf(moneyEvent.destination)];
+        return <article className="withdrawal-item" key={moneyEvent.id}><div><strong>{add?"+":"−"}{amount(moneyEvent.amount,currency)} · {t.age} {moneyEvent.age} · {t.eventMonth} {moneyEvent.month||1}</strong><span>{reasons[Number(moneyEvent.reason)||0]}{add?` · ${t.eventDestination}: ${destination||t.moneyDestinations[0]}`:` · ${t.automaticLowestReturn}`}</span></div><div><button type="button" onClick={()=>startEditMoneyEvent(moneyEvent)}>{t.withdrawalEdit}</button><button type="button" onClick={()=>removeMoneyEvent(moneyEvent.id)}>{t.withdrawalRemove}</button></div></article>;
+      })}</div> : <p className="withdrawal-empty">{t.noMoneyEvents}</p>}
+      {eventEditorOpen ? <div className="withdrawal-editor">
+        <div className="withdrawal-editor-actions"><button type="button" className={`button ${eventDraft.type==="add"?"primary":"secondary"}`} onClick={()=>setEventDraft((c)=>({...c,type:"add",reason:"0"}))}>{t.addMoney}</button><button type="button" className={`button ${eventDraft.type==="withdraw"?"primary":"secondary"}`} onClick={()=>setEventDraft((c)=>({...c,type:"withdraw",reason:"0"}))}>{t.withdrawMoney}</button></div>
+        <Field label={t.eventAge} value={eventDraft.age} min={retirement.currentAge} max={retirement.planToAge-1} onChange={(next)=>setEventDraft((c)=>({...c,age:next}))}/>
+        <Field label={t.eventMonth} value={eventDraft.month} min={1} max={12} onChange={(next)=>setEventDraft((c)=>({...c,month:next}))}/>
+        <Field label={eventDraft.type==="add"?t.netAmountReceived:t.eventAmount} value={eventDraft.amount} prefix={currencyPrefix} onChange={(next)=>setEventDraft((c)=>({...c,amount:next}))}/>
+        <label className="withdrawal-reason"><span>{t.eventReason}</span><select value={eventDraft.reason} onChange={(event)=>setEventDraft((c)=>({...c,reason:event.target.value}))}>{(eventDraft.type==="add"?t.addMoneyReasons:t.withdrawMoneyReasons).map((reason,index)=><option value={String(index)} key={reason}>{reason}</option>)}</select></label>
+        {eventDraft.type==="add"&&<label className="withdrawal-reason"><span>{t.eventDestination}</span><select value={eventDraft.destination} onChange={(event)=>setEventDraft((c)=>({...c,destination:event.target.value}))}><option value="cash">{t.moneyDestinations[0]}</option><option value="investments">{t.moneyDestinations[1]}</option><option value="retirement">{t.moneyDestinations[2]}</option></select></label>}
+        <p>{eventDraft.type==="add"?t.netProceedsNote:t.amountAtFutureAge}<br/>{eventDraft.type==="withdraw"&&<strong>{t.automaticLowestReturn}</strong>}</p>
+        <div className="withdrawal-editor-actions"><button type="button" className="button ghost" onClick={()=>setEventEditorOpen(false)}>{t.cancel}</button><button type="button" className="button primary" onClick={saveMoneyEvent}>{t.saveMoneyEvent}</button></div>
+      </div> : <div className="withdrawal-editor-actions withdrawal-add"><button type="button" className="button secondary" onClick={()=>startAddMoneyEvent("add")}>{t.addMoney}</button><button type="button" className="button secondary" onClick={()=>startAddMoneyEvent("withdraw")}>{t.withdrawMoney}</button></div>}
+      {isFree&&<small className="withdrawal-limit">{t.freeMoneyEventLimit}</small>}
     </section>
   );
 
@@ -794,12 +771,15 @@ export default function App() {
                 <Field label={t.investments} value={retirementInput.investmentSavings} prefix={currencyPrefix} onChange={(next) => updateRetirement("investmentSavings", next)}/>
                 <Field label={t.retirement} value={retirementInput.retirementSavings} prefix={currencyPrefix} onChange={(next) => updateRetirement("retirementSavings", next)}/>
                 <button type="button" className="inline-link" onClick={syncRetirement}>{t.useMyBalance} · {amount(safeNumber(values.cash) + safeNumber(values.investments) + safeNumber(values.retirement), currency)}</button>
-                <Field label={t.monthlySavings} value={retirementInput.monthlySavings} prefix={currencyPrefix} onChange={(next) => updateRetirement("monthlySavings", next)}/>
-                <Field label={t.monthlyContribution} value={retirementInput.monthlyContribution} prefix={currencyPrefix} onChange={(next) => updateRetirement("monthlyContribution", next)}/>
+                <Field label={t.preRetirementMonthlyIncome} value={retirementInput.preRetirementIncome} prefix={currencyPrefix} onChange={(next)=>updateRetirement("preRetirementIncome",next)}/>
+                <Field label={t.preRetirementMonthlyExpenses} value={retirementInput.preRetirementExpenses} prefix={currencyPrefix} onChange={(next)=>updateRetirement("preRetirementExpenses",next)}/>
+                <Field label={t.monthlyContribution} value={retirementInput.monthlyContribution} prefix={currencyPrefix} onChange={(next)=>updateRetirement("monthlyContribution",next)}/>
+                <label className="withdrawal-reason"><span className="field-label-row"><span>{t.retirementContributionSource}</span><HelpTip text={t.retirementContributionSourceHelp}/></span><select value={retirementInput.retirementContributionSource||"income"} onChange={(event)=>updateRetirement("retirementContributionSource",event.target.value)}><option value="income">{t.contributionSources[0]}</option><option value="external">{t.contributionSources[1]}</option><option value="savings">{t.contributionSources[2]}</option></select></label>
+                <div className="mini-metric"><span>{t.availableToSave}</span><strong>{amount(retirement.availableMonthlySavings,currency)} {t.perMonth}</strong></div>
                 <Field label={t.desiredRetirementSpending} value={retirementInput.monthlySpending} prefix={currencyPrefix} onChange={(next) => updateRetirement("monthlySpending", next)}/>
                 <Field label={t.monthlyIncome} help={t.monthlyIncomeHelp} value={retirementInput.monthlyIncome} prefix={currencyPrefix} onChange={(next) => updateRetirement("monthlyIncome", next)}/>
                 {ReturnAssumptions()}
-                {MajorWithdrawalsSection(t.plannedLargeExpenses, t.plannedLargeExpensesHelp)}
+                {OneTimeMoneyEventsSection()}
               </div>
             </div>
             <div className="retirement-results">
@@ -822,7 +802,7 @@ export default function App() {
               {retirement.retirementAge < retirement.retirementAccessAge && (
                 <div className="card bridge-card"><div><Icon name="lock"/><span><strong>{t.bridgePeriod}</strong><small>{t.bridgePeriodHelp}</small></span></div><div><span>{t.projectedAccessibleFund}<strong>{amount(retirement.projectedAccessibleFund, currency)}</strong></span><span>{t.projectedLockedFund}<strong>{amount(retirement.projectedLockedFund, currency)}</strong></span></div></div>
               )}
-              {retirement.unfundedMajorWithdrawals > 0 && <div className="saving-callout"><span>{t.unfundedExpense}</span><strong>{amount(retirement.unfundedMajorWithdrawals, currency)}</strong></div>}
+              {retirement.unfundedMoneyWithdrawals > 0 && <div className="saving-callout"><span>{t.unfundedExpense}</span><strong>{amount(retirement.unfundedMoneyWithdrawals, currency)}</strong></div>}
               <div className="card target-table-card">
                 <div className="chart-head"><div><h3>{t.yearlyTargets}</h3><p>{t.yearlyTargetsHint}</p></div>{isFree && <StatusPill tone="blue">5 {t.years || "years"}</StatusPill>}</div>
                 <div className="target-table">
@@ -847,7 +827,7 @@ export default function App() {
                 <button type="button" className="inline-link" onClick={useMaximumSpending}>{t.useMaximumSpending} · {amount(retirement.maximumMonthlySpending, currency)}</button>
                 <Field label={t.monthlyIncome} help={t.monthlyIncomeHelp} value={retirementInput.monthlyIncome} prefix={currencyPrefix} onChange={(next) => updateRetirement("monthlyIncome", next)}/>
                 {ReturnAssumptions()}
-                {MajorWithdrawalsSection()}
+                {OneTimeMoneyEventsSection()}
               </div>
             </div>
             <div className="retirement-results">
@@ -862,9 +842,9 @@ export default function App() {
                 <Stat label={t.firstYearSpend} value={amount(retirement.firstYearSpend, currency, true)} tone="neutral"/>
                 <Stat label={`${t.remainingFundAtAge} ${retirement.planToAge}`} value={amount(retirement.endBalance, currency, true)} tone={retirement.onTrack ? "teal" : "red"}/>
               </div>
-              {retirement.unfundedMajorWithdrawals > 0 && <div className="saving-callout"><span>{t.unfundedExpense}</span><strong>{amount(retirement.unfundedMajorWithdrawals, currency)}</strong></div>}
-              {baselineRetirement && <div className="card withdrawal-impact"><h3>{t.withdrawalImpact}</h3><div><span>{t.beforeWithdrawal}<strong>{amount(baselineRetirement.maximumMonthlySpending, currency)} {t.perMonth}</strong><small>{postOutcome(baselineRetirement)}</small></span><span>{t.afterWithdrawal}<strong>{amount(retirement.maximumMonthlySpending, currency)} {t.perMonth}</strong><small>{postOutcome(retirement)}</small></span></div></div>}
-              <div className="card chart-card"><div className="chart-head"><div><h3>{t.projection}</h3><p>{t.currentAge} {retirement.currentAge} → {t.planToAge} {retirement.planToAge}</p></div><StatusPill tone="blue">{t.retirementAge}: {retirement.retirementAge}</StatusPill></div><ProjectionChart data={retirement.timeline} retirementAge={retirement.retirementAge} currency={currency} withdrawals={majorWithdrawals}/>{majorWithdrawals.length > 0 && <div className="chart-events">{majorWithdrawals.map((withdrawal) => <span key={withdrawal.id}>{t.age} {withdrawal.age}: {t.withdrawalReasons[Number(withdrawal.reason) || 0]} −{amount(withdrawal.amount, currency)}</span>)}</div>}<p className="chart-note">{t.projectionNote}</p></div>
+              {retirement.unfundedMoneyWithdrawals > 0 && <div className="saving-callout"><span>{t.unfundedExpense}</span><strong>{amount(retirement.unfundedMoneyWithdrawals, currency)}</strong></div>}
+              {baselineRetirement && <div className="card withdrawal-impact"><h3>{t.eventImpact}</h3><div><span>{t.withoutEvents}<strong>{amount(baselineRetirement.maximumMonthlySpending,currency)} {t.perMonth}</strong><small>{postOutcome(baselineRetirement)}</small></span><span>{t.withEvents}<strong>{amount(retirement.maximumMonthlySpending,currency)} {t.perMonth}</strong><small>{postOutcome(retirement)}</small></span></div></div>}
+              <div className="card chart-card"><div className="chart-head"><div><h3>{t.projection}</h3><p>{t.currentAge} {retirement.currentAge} → {t.planToAge} {retirement.planToAge}</p></div><StatusPill tone="blue">{t.retirementAge}: {retirement.retirementAge}</StatusPill></div><ProjectionChart data={retirement.timeline} retirementAge={retirement.retirementAge} currency={currency} events={moneyEvents}/>{moneyEvents.length > 0 && <div className="chart-events">{moneyEvents.map((moneyEvent)=>{const add=moneyEvent.type==="add";const reasons=add?t.addMoneyReasons:t.withdrawMoneyReasons;return <span key={moneyEvent.id}>{t.age} {moneyEvent.age}/{moneyEvent.month||1}: {reasons[Number(moneyEvent.reason)||0]} {add?"+":"−"}{amount(moneyEvent.amount,currency)}</span>;})}</div>}<p className="chart-note">{t.projectionNote}</p></div>
             </div>
           </div>
         )}
