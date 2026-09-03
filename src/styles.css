@@ -252,15 +252,26 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .profile-field input:focus, .profile-field select:focus { border-color: var(--blue); background: white; box-shadow: 0 0 0 4px rgba(25,84,209,.1); }
 .profile-age strong { display: flex; align-items: center; color: var(--blue); }
 
+.retirement-tabs { margin: -8px 0 24px; padding: 5px; display: grid; grid-template-columns: 1fr 1fr; gap: 5px; background: #e6ebf3; border-radius: 18px; }
+.retirement-tabs button { min-height: 76px; padding: 13px 18px; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; color: var(--muted); background: transparent; border: 0; border-radius: 14px; cursor: pointer; text-align: left; }
+.retirement-tabs button.active { color: white; background: var(--navy); box-shadow: 0 8px 22px rgba(11,31,58,.16); }
+.retirement-tabs strong { font-size: 19px; }
+.retirement-tabs span { margin-top: 2px; font-size: 13px; }
+.retirement-tabs button.active span { color: #c2cee0; }
 .retirement-grid { display: grid; grid-template-columns: minmax(440px, .72fr) minmax(560px, 1.28fr); gap: 22px; align-items: start; }
 .retirement-inputs { padding: 28px; }
 .age-grid { padding: 18px 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; border-bottom: 1px solid var(--line); }
+.age-grid-four { grid-template-columns: repeat(2, 1fr); }
 .age-grid .field { min-height: auto; display: block; border: 0; }
 .age-grid .field-label { display: block; min-height: 42px; margin-bottom: 7px; font-size: 14px; }
 .age-grid .field-control { min-width: 0; }
 .retirement-fields .field { min-height: 68px; }
 .free-assumption-note { margin: 12px 0 2px; padding: 10px 12px; display: flex; align-items: center; gap: 8px; color: #6a5200; background: var(--gold-light); border: 1px solid #ead78f; border-radius: 10px; font-size: 13px; font-weight: 800; }
 .free-assumption-note .icon { width: 16px; height: 16px; }
+.advanced-assumptions { margin-top: 8px; border: 1px solid var(--line); border-radius: 13px; background: #f8fafc; overflow: hidden; }
+.advanced-assumptions summary { padding: 14px 15px; color: var(--blue); cursor: pointer; font-size: 14px; font-weight: 820; }
+.advanced-assumptions[open] summary { border-bottom: 1px solid var(--line); }
+.advanced-assumptions > .fields-list { padding: 4px 14px 12px; }
 .field-control input[readonly] { color: #53647a; cursor: pointer; }
 .inline-link { margin: -2px 0 8px auto; padding: 8px 11px; color: var(--blue); background: var(--blue-light); border: 0; border-radius: 9px; font-size: 13px; font-weight: 780; cursor: pointer; }
 .major-withdrawals-card { margin-top: 10px; padding: 18px; border: 1px solid #ead78f; border-radius: 16px; background: #fffaf0; }
@@ -302,6 +313,24 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .saving-callout span { font-weight: 750; }
 .saving-callout strong { font-size: 24px; }
 .saving-callout small { grid-column: 1 / -1; color: #876262; }
+.saving-callout.saving-ok { color: #08766d; background: var(--teal-light); border-color: #9bddd5; }
+.saving-callout.saving-ok small { color: #397c75; }
+.bridge-card { padding: 20px; }
+.bridge-card > div:first-child { display: flex; gap: 12px; align-items: flex-start; }
+.bridge-card > div:first-child > .icon { margin-top: 2px; color: var(--gold); }
+.bridge-card > div:first-child span, .bridge-card > div:last-child span { display: flex; flex-direction: column; }
+.bridge-card > div:first-child strong { color: var(--navy); font-size: 19px; }
+.bridge-card > div:first-child small { margin-top: 3px; color: var(--muted); }
+.bridge-card > div:last-child { margin-top: 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.bridge-card > div:last-child span { padding: 12px; color: var(--muted); background: #f4f7fb; border-radius: 11px; font-size: 12px; font-weight: 750; }
+.bridge-card > div:last-child strong { margin-top: 5px; color: var(--navy); font-size: 18px; }
+.target-table-card { padding: 22px; }
+.target-table { margin-top: 16px; display: grid; gap: 1px; overflow: hidden; border: 1px solid var(--line); border-radius: 12px; background: var(--line); }
+.target-row { padding: 12px; display: grid; grid-template-columns: .45fr 1fr 1fr 1fr; gap: 10px; align-items: center; background: white; font-size: 13px; }
+.target-row span:not(:first-child) { text-align: right; font-variant-numeric: tabular-nums; }
+.target-head { color: var(--muted); background: #eef3f8; font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: .035em; }
+.target-row .positive { color: #08766d; font-weight: 800; }
+.target-row .negative { color: var(--red); font-weight: 800; }
 .chart-card { padding: 24px; }
 .chart-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
 .chart-head h3 { margin: 0; color: var(--navy); font-size: 23px; }
@@ -532,6 +561,13 @@ button, a { -webkit-tap-highlight-color: transparent; }
   .plan-banner strong { font-size: 22px; }
   .saving-callout { grid-template-columns: 1fr; }
   .saving-callout strong, .saving-callout small { grid-column: 1; }
+  .retirement-tabs { margin-top: 0; }
+  .retirement-tabs button { min-height: 68px; padding: 10px 12px; }
+  .retirement-tabs strong { font-size: 16px; }
+  .retirement-tabs span { display: none; }
+  .bridge-card > div:last-child { grid-template-columns: 1fr; }
+  .target-table-card { padding: 16px; overflow-x: auto; }
+  .target-table { min-width: 520px; }
   .withdrawal-item { grid-template-columns: 1fr; }
   .withdrawal-item > div:last-child { justify-content: flex-start; }
   .withdrawal-impact > div { grid-template-columns: 1fr; }

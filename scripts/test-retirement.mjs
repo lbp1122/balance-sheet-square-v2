@@ -1,0 +1,100 @@
+import assert from "node:assert/strict";
+import { calculateRetirement } from "../src/finance.js";
+import { defaultRetirement } from "../src/data.js";
+
+const plan = (overrides = {}) => ({ ...defaultRetirement, ...overrides });
+
+const effectiveReturn = calculateRetirement(plan({
+  currentAge: 40,
+  retirementAge: 41,
+  retirementAccessAge: 40,
+  planToAge: 42,
+  cashSavings: 100000,
+  investmentSavings: 0,
+  retirementSavings: 0,
+  monthlySavings: 0,
+  monthlyContribution: 0,
+  cashReturn: 3,
+  investmentReturn: 0,
+  retirementReturn: 0,
+  inflation: 0,
+  monthlySpending: 0,
+  monthlyIncome: 0,
+}));
+assert.ok(Math.abs(effectiveReturn.projectedFund - 103000) < 0.1, "annual return should compound to the entered annual rate");
+
+const lockedEmergency = calculateRetirement(plan({
+  currentAge: 35,
+  retirementAge: 40,
+  retirementAccessAge: 55,
+  planToAge: 60,
+  cashSavings: 1000,
+  investmentSavings: 0,
+  retirementSavings: 100000,
+  monthlySavings: 0,
+  monthlyContribution: 0,
+  cashReturn: 0,
+  investmentReturn: 0,
+  retirementReturn: 0,
+  inflation: 0,
+  monthlySpending: 0,
+  monthlyIncome: 0,
+  majorWithdrawals: [{ id: "medical", age: 35, month: 1, amount: 5000, reason: "0" }],
+}));
+assert.equal(lockedEmergency.withdrawalResults[0].fromRetirement, 0, "locked retirement money must not fund an early emergency");
+assert.equal(lockedEmergency.withdrawalResults[0].unfunded, 4000);
+
+const lowestReturnFirst = calculateRetirement(plan({
+  currentAge: 60,
+  retirementAge: 60,
+  retirementAccessAge: 55,
+  planToAge: 61,
+  cashSavings: 100,
+  investmentSavings: 100,
+  retirementSavings: 100,
+  monthlySavings: 0,
+  monthlyContribution: 0,
+  cashReturn: 3,
+  investmentReturn: 1,
+  retirementReturn: 2,
+  inflation: 0,
+  monthlySpending: 0,
+  monthlyIncome: 0,
+  majorWithdrawals: [{ id: "car", age: 60, month: 1, amount: 150, reason: "2" }],
+}));
+assert.ok(lowestReturnFirst.withdrawalResults[0].fromInvestments > 100, "lowest-return investment pool should be used first after access");
+assert.equal(lowestReturnFirst.withdrawalResults[0].fromCash, 0);
+assert.ok(lowestReturnFirst.withdrawalResults[0].fromRetirement > 0);
+
+const earlyBridge = calculateRetirement(plan({
+  currentAge: 35,
+  retirementAge: 40,
+  retirementAccessAge: 55,
+  planToAge: 90,
+  cashSavings: 1000000,
+  investmentSavings: 1000000,
+  retirementSavings: 500000,
+  monthlySavings: 0,
+  monthlyContribution: 0,
+  monthlySpending: 5000,
+  monthlyIncome: 0,
+}));
+assert.equal(earlyBridge.financiallyIndependentNow, true, "accessible savings should allow retirement before the locked fund opens");
+
+const lockedOnly = calculateRetirement(plan({
+  currentAge: 35,
+  retirementAge: 40,
+  retirementAccessAge: 55,
+  planToAge: 90,
+  cashSavings: 0,
+  investmentSavings: 0,
+  retirementSavings: 3000000,
+  monthlySavings: 0,
+  monthlyContribution: 0,
+  monthlySpending: 5000,
+  monthlyIncome: 0,
+}));
+assert.equal(lockedOnly.onTrack, false, "a large locked balance alone must not falsely pass the early-retirement bridge");
+assert.ok(lockedOnly.earliestRetirementAge >= 55);
+
+console.log("Retirement calculation tests passed.");

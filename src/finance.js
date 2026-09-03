@@ -33,7 +33,12 @@ function retirementAges(input) {
   const currentAge = clamp(Math.round(safeNumber(input.currentAge)), 18, 119);
   const retirementAge = clamp(Math.round(safeNumber(input.retirementAge)), currentAge, 119);
   const planToAge = clamp(Math.round(safeNumber(input.planToAge)), retirementAge + 1, 120);
-  return { currentAge, retirementAge, planToAge };
+  const retirementAccessAge = clamp(
+    Math.round(safeNumber(input.retirementAccessAge ?? 55)),
+    currentAge,
+    planToAge,
+  );
+  return { currentAge, retirementAge, retirementAccessAge, planToAge };
 }
 
 function startingPools(input) {
@@ -56,10 +61,14 @@ function totalPools(pools) {
   return safeNumber(pools.cash) + safeNumber(pools.investments) + safeNumber(pools.retirement);
 }
 
-function growOneMonth(pools, rates, monthlyContribution) {
-  pools.cash *= 1 + rates.cash / 12;
-  pools.investments *= 1 + rates.investments / 12;
-  pools.retirement = pools.retirement * (1 + rates.retirement / 12) + monthlyContribution;
+function monthlyRate(annualRate) {
+  return Math.pow(1 + Math.max(0, annualRate), 1 / 12) - 1;
+}
+
+function growOneMonth(pools, rates, monthlySavings = 0, monthlyContribution = 0) {
+  pools.cash *= 1 + monthlyRate(rates.cash);
+  pools.investments = pools.investments * (1 + monthlyRate(rates.investments)) + monthlySavings;
+  pools.retirement = pools.retirement * (1 + monthlyRate(rates.retirement)) + monthlyContribution;
 }
 
 function normalizedMajorWithdrawals(input) {
@@ -77,13 +86,13 @@ function normalizedMajorWithdrawals(input) {
     .sort((a, b) => (a.age - b.age) || (a.month - b.month));
 }
 
-function applyMajorWithdrawals(pools, rates, events) {
+function applyMajorWithdrawals(pools, rates, events, retirementAccessible = true) {
   const results = [];
   let requested = 0;
   let unfunded = 0;
   events.forEach((event) => {
     const before = { ...pools };
-    const shortfall = withdrawLowestReturnFirst(pools, rates, event.amount);
+    const shortfall = withdrawLowestReturnFirst(pools, rates, event.amount, retirementAccessible);
     requested += event.amount;
     unfunded += shortfall;
     results.push({
@@ -98,24 +107,56 @@ function applyMajorWithdrawals(pools, rates, events) {
   return { requested, unfunded, results };
 }
 
-function projectToRetirement(input, monthlyContribution = safeNumber(input.monthlyContribution), includeTimeline = false) {
-  const { currentAge, retirementAge } = retirementAges(input);
+function projectToRetirement(
+  input,
+  monthlySavings = safeNumber(input.monthlySavings),
+  monthlyContribution = safeNumber(input.monthlyContribution),
+  includeTimeline = false,
+) {
+  const { currentAge, retirementAge, retirementAccessAge } = retirementAges(input);
   const rates = poolRates(input);
   const pools = startingPools(input);
   const events = normalizedMajorWithdrawals(input);
   const withdrawalResults = [];
   let unfundedMajorWithdrawals = 0;
+  const yearlySummary = [];
   const timeline = includeTimeline
     ? [{ age: currentAge, balance: totalPools(pools), phase: currentAge === retirementAge ? "retirement" : "saving" }]
     : [];
 
   for (let age = currentAge; age < retirementAge; age += 1) {
+    const openingBalance = totalPools(pools);
+    const openingAccessible = accessibleTotal(pools, age >= retirementAccessAge);
+    let annualReturn = 0;
+    let annualMajorWithdrawals = 0;
     for (let month = 1; month <= 12; month += 1) {
-      growOneMonth(pools, rates, monthlyContribution);
-      const applied = applyMajorWithdrawals(pools, rates, events.filter((event) => event.age === age && event.month === month));
+      const beforeGrowth = totalPools(pools);
+      growOneMonth(pools, rates, monthlySavings, monthlyContribution);
+      annualReturn += totalPools(pools) - beforeGrowth - monthlySavings - monthlyContribution;
+      const applied = applyMajorWithdrawals(
+        pools,
+        rates,
+        events.filter((event) => event.age === age && event.month === month),
+        age >= retirementAccessAge,
+      );
       withdrawalResults.push(...applied.results);
       unfundedMajorWithdrawals += applied.unfunded;
+      annualMajorWithdrawals += applied.requested;
     }
+    yearlySummary.push({
+      age: age + 1,
+      openingBalance,
+      openingAccessible,
+      monthlySavings,
+      annualSavings: monthlySavings * 12,
+      monthlyRetirementContribution: monthlyContribution,
+      annualRetirementContribution: monthlyContribution * 12,
+      totalReturn: annualReturn,
+      majorWithdrawals: annualMajorWithdrawals,
+      accessibleBalance: accessibleTotal(pools, age + 1 >= retirementAccessAge),
+      lockedBalance: age + 1 >= retirementAccessAge ? 0 : pools.retirement,
+      endingBalance: totalPools(pools),
+    });
     if (includeTimeline) {
       timeline.push({
         age: age + 1,
@@ -125,15 +166,19 @@ function projectToRetirement(input, monthlyContribution = safeNumber(input.month
     }
   }
 
-  return { pools, timeline, withdrawalResults, unfundedMajorWithdrawals };
+  return { pools, timeline, yearlySummary, withdrawalResults, unfundedMajorWithdrawals };
 }
 
-function withdrawLowestReturnFirst(pools, rates, amountNeeded) {
+function accessibleTotal(pools, retirementAccessible) {
+  return safeNumber(pools.cash) + safeNumber(pools.investments) + (retirementAccessible ? safeNumber(pools.retirement) : 0);
+}
+
+function withdrawLowestReturnFirst(pools, rates, amountNeeded, retirementAccessible = true) {
   let remaining = Math.max(0, amountNeeded);
   const order = [
     { key: "cash", rate: rates.cash, priority: 0 },
     { key: "investments", rate: rates.investments, priority: 1 },
-    { key: "retirement", rate: rates.retirement, priority: 2 },
+    ...(retirementAccessible ? [{ key: "retirement", rate: rates.retirement, priority: 2 }] : []),
   ].sort((a, b) => (a.rate - b.rate) || (a.priority - b.priority));
 
   for (const item of order) {
@@ -147,9 +192,10 @@ function withdrawLowestReturnFirst(pools, rates, amountNeeded) {
   return remaining;
 }
 
-function simulateRetirement(input, initialPools, includeTimeline = false) {
-  const { currentAge, retirementAge, planToAge } = retirementAges(input);
-  const yearsToRetirement = retirementAge - currentAge;
+function simulateRetirement(input, initialPools, includeTimeline = false, stopAgeOverride) {
+  const { currentAge, retirementAge, retirementAccessAge, planToAge } = retirementAges(input);
+  const stopAge = clamp(Math.round(safeNumber(stopAgeOverride ?? retirementAge)), currentAge, planToAge - 1);
+  const yearsToRetirement = stopAge - currentAge;
   const inflation = safeNumber(input.inflation) / 100;
   const rates = poolRates(input);
   const events = normalizedMajorWithdrawals(input);
@@ -166,7 +212,7 @@ function simulateRetirement(input, initialPools, includeTimeline = false) {
   const firstYearIncome = firstMonthIncome * 12;
 
   const timeline = includeTimeline
-    ? [{ age: retirementAge, balance: totalPools(pools), phase: "retirement" }]
+    ? [{ age: stopAge, balance: totalPools(pools), phase: "retirement" }]
     : [];
 
   let lastsUntil = planToAge;
@@ -177,7 +223,7 @@ function simulateRetirement(input, initialPools, includeTimeline = false) {
 
   let monthlySpend = firstMonthSpend;
   let monthlyIncome = firstMonthIncome;
-  for (let age = retirementAge; age < planToAge; age += 1) {
+  for (let age = stopAge; age < planToAge; age += 1) {
     const openingBalance = totalPools(pools);
     let annualSpending = 0;
     let annualIncome = 0;
@@ -188,9 +234,9 @@ function simulateRetirement(input, initialPools, includeTimeline = false) {
     let annualUnfundedWithdrawals = 0;
 
     for (let month = 1; month <= 12; month += 1) {
-      const cashGrowth = pools.cash * rates.cash / 12;
-      const investmentGrowth = pools.investments * rates.investments / 12;
-      const retirementGrowth = pools.retirement * rates.retirement / 12;
+      const cashGrowth = pools.cash * monthlyRate(rates.cash);
+      const investmentGrowth = pools.investments * monthlyRate(rates.investments);
+      const retirementGrowth = pools.retirement * monthlyRate(rates.retirement);
       pools.cash += cashGrowth;
       pools.investments += investmentGrowth;
       pools.retirement += retirementGrowth;
@@ -200,17 +246,25 @@ function simulateRetirement(input, initialPools, includeTimeline = false) {
 
       annualSpending += monthlySpend;
       annualIncome += monthlyIncome;
-      const shortfall = ranOut ? 0 : withdrawLowestReturnFirst(pools, rates, Math.max(0, monthlySpend - monthlyIncome));
+      const retirementAccessible = age >= retirementAccessAge;
+      const shortfall = withdrawLowestReturnFirst(
+        pools,
+        rates,
+        Math.max(0, monthlySpend - monthlyIncome),
+        retirementAccessible,
+      );
 
       if (shortfall > 0.01 && !ranOut) {
         ranOut = true;
         lastsUntil = Math.round((age + month / 12) * 10) / 10;
-        pools.cash = 0;
-        pools.investments = 0;
-        pools.retirement = 0;
       }
 
-      const applied = applyMajorWithdrawals(pools, rates, events.filter((event) => event.age === age && event.month === month));
+      const applied = applyMajorWithdrawals(
+        pools,
+        rates,
+        events.filter((event) => event.age === age && event.month === month),
+        retirementAccessible,
+      );
       annualMajorWithdrawals += applied.requested;
       annualUnfundedWithdrawals += applied.unfunded;
       unfundedMajorWithdrawals += applied.unfunded;
@@ -239,6 +293,8 @@ function simulateRetirement(input, initialPools, includeTimeline = false) {
       majorWithdrawals: annualMajorWithdrawals,
       unfundedWithdrawals: annualUnfundedWithdrawals,
       endingBalance: Math.max(0, totalPools(pools)),
+      accessibleBalance: accessibleTotal(pools, age + 1 >= retirementAccessAge),
+      lockedBalance: age + 1 >= retirementAccessAge ? 0 : pools.retirement,
     });
 
     if (includeTimeline) {
@@ -266,7 +322,14 @@ function simulateRetirement(input, initialPools, includeTimeline = false) {
 }
 
 export function calculateMaxMonthlySpending(input) {
-  const projectedPools = projectToRetirement(input, safeNumber(input.monthlyContribution), false).pools;
+  const projection = projectToRetirement(
+    input,
+    safeNumber(input.monthlySavings),
+    safeNumber(input.monthlyContribution),
+    false,
+  );
+  if (projection.unfundedMajorWithdrawals > 0.01) return 0;
+  const projectedPools = projection.pools;
   const survives = (monthlySpending) => {
     const result = simulateRetirement({ ...input, monthlySpending }, projectedPools, false);
     return !result.ranOut;
@@ -293,22 +356,27 @@ function scaledPools(pools, scale) {
 }
 
 function requiredAtRetirement(input, projectedPools) {
-  const projectedTotal = totalPools(projectedPools);
+  const { retirementAge, retirementAccessAge } = retirementAges(input);
+  const retirementLocked = retirementAge < retirementAccessAge;
+  const accessible = {
+    cash: projectedPools.cash,
+    investments: projectedPools.investments,
+    retirement: retirementLocked ? 0 : projectedPools.retirement,
+  };
+  const accessibleBase = totalPools(accessible);
+  const lockedBalance = retirementLocked ? projectedPools.retirement : 0;
+  const allocation = accessibleBase > 0 ? accessible : { cash: 0, investments: 1, retirement: 0 };
+  const allocationBase = accessibleBase > 0 ? accessibleBase : 1;
+  const poolsAtScale = (scale) => ({
+    ...scaledPools(allocation, scale),
+    retirement: retirementLocked ? lockedBalance : scaledPools(allocation, scale).retirement,
+  });
+  const survives = (scale) => !simulateRetirement(input, poolsAtScale(scale), false).ranOut;
 
-  let allocation = projectedPools;
-  let baseTotal = projectedTotal;
-
-  if (baseTotal <= 0) {
-    allocation = { cash: 0, investments: 0, retirement: 1 };
-    baseTotal = 1;
-  }
-
-  const survives = (scale) => !simulateRetirement(input, scaledPools(allocation, scale), false).ranOut;
-
-  if (survives(0)) return 0;
+  if (survives(0)) return { total: lockedBalance, accessible: 0, locked: lockedBalance };
 
   let low = 0;
-  let high = Math.max(1, projectedTotal > 0 ? 1 : 1000);
+  let high = Math.max(1, accessibleBase > 0 ? 1 : 1000);
 
   while (!survives(high) && high < 1000000000) high *= 2;
 
@@ -318,22 +386,23 @@ function requiredAtRetirement(input, projectedPools) {
     else low = mid;
   }
 
-  return baseTotal * high;
+  const requiredAccessible = allocationBase * high;
+  return { total: requiredAccessible + lockedBalance, accessible: requiredAccessible, locked: lockedBalance };
 }
 
-function contributionNeeded(input) {
+function requiredMonthlySavings(input) {
   const { currentAge, retirementAge } = retirementAges(input);
   if (retirementAge <= currentAge) return 0;
 
-  const survivesWith = (monthlyContribution) => {
-    const projection = projectToRetirement(input, monthlyContribution, false);
+  const survivesWith = (monthlySavings) => {
+    const projection = projectToRetirement(input, monthlySavings, safeNumber(input.monthlyContribution), false);
     return projection.unfundedMajorWithdrawals <= 0.01 && !simulateRetirement(input, projection.pools, false).ranOut;
   };
 
-  if (survivesWith(safeNumber(input.monthlyContribution))) return 0;
+  if (survivesWith(0)) return 0;
 
   let low = 0;
-  let high = Math.max(1000, safeNumber(input.monthlyContribution));
+  let high = Math.max(1000, safeNumber(input.monthlySavings));
 
   while (!survivesWith(high) && high < 1000000) high *= 2;
 
@@ -346,18 +415,69 @@ function contributionNeeded(input) {
   return high;
 }
 
+function projectionForStopAge(input, stopAge) {
+  const candidate = { ...input, retirementAge: stopAge };
+  const projection = projectToRetirement(
+    candidate,
+    safeNumber(input.monthlySavings),
+    safeNumber(input.monthlyContribution),
+    false,
+  );
+  const retired = simulateRetirement(candidate, projection.pools, false, stopAge);
+  return {
+    succeeds: projection.unfundedMajorWithdrawals <= 0.01 && !retired.ranOut,
+    projection,
+    retired,
+  };
+}
+
+function earliestFinancialIndependenceAge(input) {
+  const { currentAge, planToAge } = retirementAges(input);
+  for (let age = currentAge; age < planToAge; age += 1) {
+    if (projectionForStopAge(input, age).succeeds) return age;
+  }
+  return null;
+}
+
 export function calculateRetirement(input) {
-  const { currentAge, retirementAge, planToAge } = retirementAges(input);
+  const { currentAge, retirementAge, retirementAccessAge, planToAge } = retirementAges(input);
   const scheduledMajorWithdrawals = normalizedMajorWithdrawals(input);
-  const preRetirement = projectToRetirement(input, safeNumber(input.monthlyContribution), true);
+  const preRetirement = projectToRetirement(
+    input,
+    safeNumber(input.monthlySavings),
+    safeNumber(input.monthlyContribution),
+    true,
+  );
   const projectedPools = preRetirement.pools;
   const projectedFund = totalPools(projectedPools);
+  const projectedAccessibleFund = accessibleTotal(projectedPools, retirementAge >= retirementAccessAge);
+  const projectedLockedFund = retirementAge >= retirementAccessAge ? 0 : projectedPools.retirement;
 
   const retired = simulateRetirement(input, projectedPools, true);
-  const requiredFund = requiredAtRetirement(input, projectedPools);
+  const required = requiredAtRetirement(input, projectedPools);
   const unfundedMajorWithdrawals = preRetirement.unfundedMajorWithdrawals + retired.unfundedMajorWithdrawals;
-  const monthlySavingNeeded = retired.ranOut || unfundedMajorWithdrawals > 0 ? contributionNeeded(input) : 0;
+  const monthlySavingNeeded = requiredMonthlySavings(input);
+  const monthlySavingShortfall = Math.max(0, monthlySavingNeeded - safeNumber(input.monthlySavings));
   const maximumMonthlySpending = calculateMaxMonthlySpending(input);
+  const earliestRetirementAge = earliestFinancialIndependenceAge(input);
+
+  const targetProjection = projectToRetirement(
+    input,
+    monthlySavingNeeded,
+    safeNumber(input.monthlyContribution),
+    false,
+  );
+  const targetByAge = new Map(targetProjection.yearlySummary.map((row) => [row.age, row]));
+  const preRetirementYearlySummary = preRetirement.yearlySummary.map((row) => {
+    const target = targetByAge.get(row.age);
+    return {
+      ...row,
+      targetBalance: target?.endingBalance ?? row.endingBalance,
+      targetAccessibleBalance: target?.accessibleBalance ?? row.accessibleBalance,
+      targetLockedBalance: target?.lockedBalance ?? row.lockedBalance,
+      gap: row.endingBalance - (target?.endingBalance ?? row.endingBalance),
+    };
+  });
 
   const retiredTimeline = retired.timeline.slice(1);
   const timeline = [...preRetirement.timeline, ...retiredTimeline];
@@ -365,18 +485,27 @@ export function calculateRetirement(input) {
   return {
     currentAge,
     retirementAge,
+    retirementAccessAge,
     planToAge,
     projectedFund,
     projectedPools,
-    requiredFund,
-    gap: projectedFund - requiredFund,
+    projectedAccessibleFund,
+    projectedLockedFund,
+    requiredFund: required.total,
+    requiredAccessibleFund: required.accessible,
+    requiredLockedFund: required.locked,
+    gap: projectedFund - required.total,
     firstYearSpend: retired.firstYearSpend,
     lastsUntil: retired.lastsUntil,
     onTrack: !retired.ranOut && unfundedMajorWithdrawals <= 0.01,
     monthlySavingNeeded,
+    monthlySavingShortfall,
+    earliestRetirementAge,
+    financiallyIndependentNow: earliestRetirementAge === currentAge,
     maximumMonthlySpending,
     timeline,
     endBalance: retired.endBalance,
+    preRetirementYearlySummary,
     yearlySummary: retired.yearlySummary,
     withdrawalResults: [...preRetirement.withdrawalResults, ...retired.withdrawalResults],
     unfundedMajorWithdrawals,

@@ -90,7 +90,135 @@ export function blobToBase64(blob) {
   });
 }
 
-function createYearlySummaryCanvases({ retirement, currency, language, t, isFree, colors }) {
+function createPreRetirementSummaryCanvases({ retirement, currency, language, t, isFree, colors }) {
+  const width = 1754;
+  const height = 1240;
+  const rows = isFree ? retirement.preRetirementYearlySummary.slice(0, 5) : retirement.preRetirementYearlySummary;
+  const rowsPerPage = 12;
+  const pages = [];
+  const chunks = [];
+  for (let index = 0; index < rows.length; index += rowsPerPage) chunks.push(rows.slice(index, index + rowsPerPage));
+  if (!chunks.length) chunks.push([]);
+  const columns = [
+    [t.age, 60, "left"],
+    [t.openingBalance, 155, "right"],
+    [t.monthlySavings, 135, "right"],
+    [t.annualSavings, 145, "right"],
+    [t.annualRetirementContribution, 165, "right"],
+    [t.totalReturn, 135, "right"],
+    [t.majorWithdrawals, 140, "right"],
+    [t.accessibleBalance, 155, "right"],
+    [t.lockedBalance, 155, "right"],
+    [t.projectedBalance, 155, "right"],
+    [t.targetBalance, 155, "right"],
+    [t.fundingGap, 103, "right"],
+  ];
+  const tableX = 46;
+  const headerY = 310;
+  const headerH = 86;
+  const rowH = 61;
+  const locale = language === "ms" ? "ms-MY" : language === "zh" ? "zh-CN" : "en-MY";
+
+  chunks.forEach((chunk, pageIndex) => {
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext("2d");
+    context.fillStyle = colors.paper;
+    context.fillRect(0, 0, width, height);
+    context.fillStyle = colors.gold;
+    context.fillRect(0, 0, 16, height);
+    context.fillStyle = colors.navy;
+    context.fillRect(0, 0, width, 150);
+    context.fillStyle = "#ffffff";
+    context.font = '900 42px system-ui, "Noto Sans", sans-serif';
+    context.fillText(`${t.preRetirement} · ${t.yearlyTargets}`, 54, 66);
+    context.fillStyle = "#b9c9e8";
+    context.font = '700 22px system-ui, "Noto Sans", sans-serif';
+    context.fillText(`${t.yearlyTargetsHint}  ·  ${t.asAt} ${new Date().toLocaleDateString(language === "en" ? "en-GB" : locale)}`, 54, 110);
+    context.textAlign = "right";
+    context.fillStyle = "#ffffff";
+    context.font = '850 21px system-ui, "Noto Sans", sans-serif';
+    context.fillText(`${pageIndex + 2}`, width - 54, 83);
+    context.textAlign = "left";
+
+    const cards = [
+      [t.targetRetirementSum, retirement.requiredFund, colors.gold],
+      [t.projectedFund, retirement.projectedFund, colors.blue],
+      [t.requiredMonthlySavings, retirement.monthlySavingNeeded, retirement.monthlySavingShortfall > 0 ? colors.red : colors.teal],
+    ];
+    cards.forEach(([label, value, color], index) => {
+      const x = 54 + index * 554;
+      context.fillStyle = "#ffffff";
+      context.fillRect(x, 178, 522, 104);
+      context.fillStyle = colors.muted;
+      context.font = '850 17px system-ui, "Noto Sans", sans-serif';
+      context.fillText(String(label).toUpperCase(), x + 20, 211);
+      context.fillStyle = color;
+      context.font = '900 31px system-ui, "Noto Sans", sans-serif';
+      context.fillText(amount(value, currency), x + 20, 254);
+    });
+
+    context.fillStyle = colors.navy;
+    context.fillRect(tableX, headerY, columns.reduce((sum, column) => sum + column[1], 0), headerH);
+    let x = tableX;
+    columns.forEach(([label, columnWidth, align]) => {
+      context.fillStyle = "#ffffff";
+      context.font = '800 14px system-ui, "Noto Sans", sans-serif';
+      context.textAlign = align;
+      wrapText(context, String(label).toUpperCase(), align === "right" ? x + columnWidth - 9 : x + 9, headerY + 31, columnWidth - 18, 18, 3);
+      x += columnWidth;
+    });
+
+    chunk.forEach((row, rowIndex) => {
+      const y = headerY + headerH + rowIndex * rowH;
+      context.fillStyle = rowIndex % 2 ? "#eef3fa" : "#ffffff";
+      context.fillRect(tableX, y, columns.reduce((sum, column) => sum + column[1], 0), rowH);
+      const values = [
+        row.age,
+        amount(row.openingBalance, currency, true),
+        amount(row.monthlySavings, currency, true),
+        amount(row.annualSavings, currency, true),
+        amount(row.annualRetirementContribution, currency, true),
+        amount(row.totalReturn, currency, true),
+        amount(row.majorWithdrawals, currency, true),
+        amount(row.accessibleBalance, currency, true),
+        amount(row.lockedBalance, currency, true),
+        amount(row.endingBalance, currency, true),
+        amount(row.targetBalance, currency, true),
+        amount(row.gap, currency, true),
+      ];
+      let cellX = tableX;
+      values.forEach((value, columnIndex) => {
+        const [, columnWidth, align] = columns[columnIndex];
+        context.fillStyle = columnIndex === 0 || columnIndex >= values.length - 2 ? colors.navy : colors.muted;
+        if (columnIndex === values.length - 1) context.fillStyle = row.gap >= 0 ? colors.teal : colors.red;
+        context.font = columnIndex === 0 || columnIndex >= values.length - 2
+          ? '850 16px system-ui, "Noto Sans", sans-serif'
+          : '700 15px system-ui, "Noto Sans", sans-serif';
+        context.textAlign = align;
+        context.fillText(String(value), align === "right" ? cellX + columnWidth - 9 : cellX + 9, y + 38);
+        cellX += columnWidth;
+      });
+    });
+    context.textAlign = "left";
+    if (isFree) {
+      const bannerY = headerY + headerH + chunk.length * rowH + 34;
+      context.fillStyle = colors.navy;
+      context.fillRect(46, bannerY, 1658, 92);
+      context.fillStyle = "#ffffff";
+      context.font = '900 23px system-ui, "Noto Sans", sans-serif';
+      context.fillText(t.paidEdition, 72, bannerY + 37);
+      context.fillStyle = "#b9c9e8";
+      context.font = '700 18px system-ui, "Noto Sans", sans-serif';
+      context.fillText(t.freePreYearlyLimit, 72, bannerY + 68);
+    }
+    pages.push(canvas);
+  });
+  return pages;
+}
+
+function createYearlySummaryCanvases({ retirement, currency, language, t, isFree, colors, startPage = 2 }) {
   const width = 1754;
   const height = 1240;
   const rows = isFree ? retirement.yearlySummary.slice(0, 5) : retirement.yearlySummary;
@@ -142,7 +270,7 @@ function createYearlySummaryCanvases({ retirement, currency, language, t, isFree
     context.textAlign = "right";
     context.fillStyle = "#ffffff";
     context.font = '850 21px system-ui, "Noto Sans", sans-serif';
-    context.fillText(`${pageIndex + 2}`, width - 54, 83);
+    context.fillText(`${pageIndex + startPage}`, width - 54, 83);
     context.textAlign = "left";
 
     const cards = [
@@ -482,7 +610,7 @@ export async function createReportPdf({ profile = {}, calculatedAge = null, valu
     context.font = '800 15px system-ui, "Noto Sans", sans-serif';
     context.textAlign = "right";
     context.fillText(`${t.projectedFund}: ${amount(retirement.projectedFund, currency)}`, 1145, retirementY + 43);
-    context.fillText(`${t.lastsUntil}: ${t.age} ${retirement.lastsUntil}`, 1145, retirementY + 72);
+    context.fillText(`${t.earliestRetirementAge}: ${retirement.earliestRetirementAge ?? "—"}   ·   ${t.lastsUntil}: ${t.age} ${retirement.lastsUntil}`, 1145, retirementY + 72);
     context.textAlign = "left";
   };
 
@@ -525,15 +653,25 @@ export async function createReportPdf({ profile = {}, calculatedAge = null, valu
     });
   }
 
+  const colors = { navy, blue, teal, gold, paper, muted, red };
+  const preRetirementCanvases = createPreRetirementSummaryCanvases({
+    retirement,
+    currency,
+    language,
+    t,
+    isFree,
+    colors,
+  });
   const summaryCanvases = createYearlySummaryCanvases({
     retirement,
     currency,
     language,
     t,
     isFree,
-    colors: { navy, blue, teal, gold, paper, muted, red },
+    colors,
+    startPage: 2 + preRetirementCanvases.length,
   });
-  const pageCanvases = [canvas, ...summaryCanvases];
+  const pageCanvases = [canvas, ...preRetirementCanvases, ...summaryCanvases];
   const images = [];
   for (const pageCanvas of pageCanvases) {
     const jpegBlob = await canvasBlob(pageCanvas, "image/jpeg", 0.92);

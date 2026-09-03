@@ -321,8 +321,9 @@ export default function App() {
     const editionDefaults = isFree
       ? { ...defaultRetirement, cashReturn: "2.5", investmentReturn: "2.5", retirementReturn: "2.5" }
       : { ...defaultRetirement };
-    return { ...editionDefaults, monthlySpending: String(calculateMaxMonthlySpending(editionDefaults)) };
+    return { ...editionDefaults };
   });
+  const [retirementView, setRetirementView] = useState("pre");
   const [activeScenario, setActiveScenario] = useState(0);
   const [hydrated, setHydrated] = useState(false);
   const [actionStatus, setActionStatus] = useState("");
@@ -423,13 +424,13 @@ export default function App() {
   };
   const syncRetirement = () => {
     setRetirementInput((current) => {
-      const next = {
+      return {
         ...current,
         cashSavings: String(safeNumber(values.cash)),
         investmentSavings: String(safeNumber(values.investments)),
         retirementSavings: String(safeNumber(values.retirement)),
+        monthlySpending: String(safeNumber(values.monthlyExpenses) || safeNumber(current.monthlySpending)),
       };
-      return { ...next, monthlySpending: String(calculateMaxMonthlySpending(next)) };
     });
   };
   const useMaximumSpending = () => {
@@ -521,7 +522,7 @@ export default function App() {
       : { ...defaultRetirement };
     setProfile({ ...defaultProfile });
     setValues({ ...defaultValues });
-    setRetirementInput({ ...editionDefaults, monthlySpending: String(calculateMaxMonthlySpending(editionDefaults)) });
+    setRetirementInput({ ...editionDefaults });
     setActiveScenario(0);
     setActionStatus(t.saved);
   };
@@ -587,7 +588,7 @@ export default function App() {
           <Stat label={t.totalAssets} value={amount(balance.assets, currency, true)} tone="teal" icon="assets"/>
           <Stat label={t.liabilities} value={amount(balance.liabilities, currency, true)} tone={debtTone} icon="debts"/>
           <Stat label={t.netWorth} value={amount(balance.equity, currency, true)} tone={balance.equity >= 0 ? "blue" : "red"} icon="square"/>
-          <Stat label={t.retirePage} value={retirement.onTrack ? t.onTrack : t.needsWork} note={`${t.age} ${retirement.lastsUntil}`} tone={retirement.onTrack ? "teal" : "red"} icon="retirement"/>
+          <Stat label={t.retirePage} value={retirement.onTrack ? t.onTrack : t.needsWork} note={retirement.earliestRetirementAge === null ? t.notYetAchievable : `${t.earliestRetirementAge}: ${retirement.earliestRetirementAge}`} tone={retirement.onTrack ? "teal" : "red"} icon="retirement"/>
         </div>
 
         <div className="section-title-row"><div><h2>{t.quickActions}</h2><p>{t.quickHint}</p></div></div>
@@ -674,80 +675,158 @@ export default function App() {
     );
   };
 
-  const RetirementPage = () => (
-    <section className="content-section page-section retirement-page">
-      <PageHeader eyebrow="05" title={t.retirementTitle} hint={t.retirementHint} status={<StatusPill tone={retirement.onTrack ? "teal" : "red"}>{retirement.onTrack ? t.onTrack : t.needsWork}</StatusPill>}/>
-      <div className="retirement-grid">
-        <div className="card retirement-inputs">
-          <div className="form-card-head"><span className="big-icon blue"><Icon name="retirement"/></span><div><h2>{t.assumptions}</h2><p>{t.saved}</p></div></div>
-          <div className="age-grid">
-            <Field label={t.currentAge} value={retirementInput.currentAge} locked={calculatedAge !== null} onLocked={() => navigate("profile")} onChange={(next) => updateRetirement("currentAge", next)} max={119}/>
-            <Field label={t.retirementAge} value={retirementInput.retirementAge} onChange={(next) => updateRetirement("retirementAge", next)} max={119}/>
-            <Field label={t.planToAge} value={retirementInput.planToAge} onChange={(next) => updateRetirement("planToAge", next)} max={120}/>
-          </div>
-          <div className="fields-list retirement-fields">
-            <Field label={t.cash} value={retirementInput.cashSavings} prefix={currencyPrefix} onChange={(next) => updateRetirement("cashSavings", next)}/>
-            <Field label={t.investments} value={retirementInput.investmentSavings} prefix={currencyPrefix} onChange={(next) => updateRetirement("investmentSavings", next)}/>
-            <Field label={t.retirement} value={retirementInput.retirementSavings} prefix={currencyPrefix} onChange={(next) => updateRetirement("retirementSavings", next)}/>
-            <button type="button" className="inline-link" onClick={syncRetirement}>{t.useMyBalance} · {amount(safeNumber(values.cash) + safeNumber(values.investments) + safeNumber(values.retirement), currency)}</button>
-            <Field label={t.monthlyContribution} value={retirementInput.monthlyContribution} prefix={currencyPrefix} onChange={(next) => updateRetirement("monthlyContribution", next)}/>
-            {isFree && <div className="free-assumption-note"><Icon name="lock"/><span>{t.conservativeAssumption}</span></div>}
-            <Field label={t.cashReturn} value={isFree ? "2.5" : retirementInput.cashReturn} suffix="%" locked={isFree} onLocked={() => setUpgradeOpen(true)} onChange={(next) => updateRetirement("cashReturn", next)} max={30}/>
-            <Field label={t.investmentReturn} value={isFree ? "2.5" : retirementInput.investmentReturn} suffix="%" locked={isFree} onLocked={() => setUpgradeOpen(true)} onChange={(next) => updateRetirement("investmentReturn", next)} max={30}/>
-            <Field label={t.retirementReturn} value={isFree ? "2.5" : retirementInput.retirementReturn} suffix="%" locked={isFree} onLocked={() => setUpgradeOpen(true)} onChange={(next) => updateRetirement("retirementReturn", next)} max={30}/>
-            <Field label={t.inflation} value={retirementInput.inflation} suffix="%" onChange={(next) => updateRetirement("inflation", next)} max={20}/>
-            <Field label={t.monthlySpending} value={retirementInput.monthlySpending} prefix={currencyPrefix} onChange={(next) => updateRetirement("monthlySpending", next)}/>
-            <button type="button" className="inline-link" onClick={useMaximumSpending}>{t.useMaximumSpending} · {amount(retirement.maximumMonthlySpending, currency)}</button>
-            <Field label={t.monthlyIncome} help={t.monthlyIncomeHelp} value={retirementInput.monthlyIncome} prefix={currencyPrefix} onChange={(next) => updateRetirement("monthlyIncome", next)}/>
-            <section className="major-withdrawals-card">
-              <div className="major-withdrawals-head">
-                <span className="big-icon gold"><Icon name="withdrawal"/></span>
-                <div><h3>{t.majorWithdrawals}</h3><p>{t.majorWithdrawalsHelp}</p></div>
-              </div>
-              {majorWithdrawals.length ? (
-                <div className="withdrawal-list">
-                  {majorWithdrawals.map((withdrawal) => (
-                    <article className="withdrawal-item" key={withdrawal.id}>
-                      <div><strong>{t.age} {withdrawal.age} · {amount(withdrawal.amount, currency)}</strong><span>{t.withdrawalReasons[Number(withdrawal.reason) || 0]} · {t.automaticLowestReturn}</span></div>
-                      <div><button type="button" onClick={() => startEditWithdrawal(withdrawal)}>{t.withdrawalEdit}</button><button type="button" onClick={() => removeMajorWithdrawal(withdrawal.id)}>{t.withdrawalRemove}</button></div>
-                    </article>
-                  ))}
-                </div>
-              ) : <p className="withdrawal-empty">{t.noMajorWithdrawals}</p>}
-              {withdrawalEditorOpen ? (
-                <div className="withdrawal-editor">
-                  <Field label={t.withdrawalAge} value={withdrawalDraft.age} min={retirement.currentAge} max={retirement.planToAge - 1} onChange={(next) => setWithdrawalDraft((current) => ({ ...current, age: next }))}/>
-                  <Field label={t.withdrawalAmount} value={withdrawalDraft.amount} prefix={currencyPrefix} onChange={(next) => setWithdrawalDraft((current) => ({ ...current, amount: next }))}/>
-                  <label className="withdrawal-reason"><span>{t.withdrawalReason}</span><select value={withdrawalDraft.reason} onChange={(event) => setWithdrawalDraft((current) => ({ ...current, reason: event.target.value }))}>{t.withdrawalReasons.map((reason, index) => <option value={String(index)} key={reason}>{reason}</option>)}</select></label>
-                  <p>{t.amountAtFutureAge}<br/><strong>{t.automaticLowestReturn}</strong></p>
-                  <div className="withdrawal-editor-actions"><button type="button" className="button ghost" onClick={() => setWithdrawalEditorOpen(false)}>{t.cancel}</button><button type="button" className="button primary" onClick={saveMajorWithdrawal}>{t.saveWithdrawal}</button></div>
-                </div>
-              ) : <button type="button" className="button secondary full withdrawal-add" onClick={startAddWithdrawal}><Icon name="withdrawal"/>{t.addWithdrawal}</button>}
-              {isFree && <small className="withdrawal-limit">{t.freeWithdrawalLimit}</small>}
-            </section>
-          </div>
-        </div>
-        <div className="retirement-results">
-          <div className={`plan-banner ${retirement.onTrack ? "on-track" : "off-track"}`}>
-            <span><Icon name={retirement.onTrack ? "check" : "retirement"}/></span>
-            <div><small>{t.retirementTitle}</small><strong>{retirement.onTrack ? t.onTrack : t.needsWork}</strong></div>
-            <b>{t.age} {retirement.lastsUntil}</b>
-          </div>
-          <div className="stats-grid retirement-stats">
-            <Stat label={t.projectedFund} value={amount(retirement.projectedFund, currency, true)} tone="blue"/>
-            <Stat label={t.requiredFund} value={amount(retirement.requiredFund, currency, true)} tone="gold"/>
-            <Stat label={t.fundingGap} value={amount(retirement.gap, currency, true)} tone={retirement.gap >= 0 ? "teal" : "red"}/>
-            <Stat label={t.firstYearSpend} value={amount(retirement.firstYearSpend, currency, true)} tone="neutral"/>
-          </div>
-          {!retirement.onTrack && retirement.monthlySavingNeeded > 0 && <div className="saving-callout"><span>{t.monthlySavingNeeded}</span><strong>{amount(retirement.monthlySavingNeeded, currency)} {t.perMonth}</strong><small>{t.projectionNote}</small></div>}
-          {retirement.unfundedMajorWithdrawals > 0 && <div className="saving-callout"><span>{t.unfundedExpense}</span><strong>{amount(retirement.unfundedMajorWithdrawals, currency)}</strong></div>}
-          {baselineRetirement && <div className="card withdrawal-impact"><h3>{t.withdrawalImpact}</h3><div><span>{t.beforeWithdrawal}<strong>{amount(baselineRetirement.maximumMonthlySpending, currency)} {t.perMonth}</strong><small>{t.lastsUntil}: {t.age} {baselineRetirement.lastsUntil}</small></span><span>{t.afterWithdrawal}<strong>{amount(retirement.maximumMonthlySpending, currency)} {t.perMonth}</strong><small>{t.lastsUntil}: {t.age} {retirement.lastsUntil}</small></span></div></div>}
-          <div className="card chart-card"><div className="chart-head"><div><h3>{t.projection}</h3><p>{t.currentAge} {retirement.currentAge} → {t.planToAge} {retirement.planToAge}</p></div><StatusPill tone="blue">{t.retirementAge}: {retirement.retirementAge}</StatusPill></div><ProjectionChart data={retirement.timeline} retirementAge={retirement.retirementAge} currency={currency} withdrawals={majorWithdrawals}/>{majorWithdrawals.length > 0 && <div className="chart-events">{majorWithdrawals.map((withdrawal) => <span key={withdrawal.id}>{t.age} {withdrawal.age}: {t.withdrawalReasons[Number(withdrawal.reason) || 0]} −{amount(withdrawal.amount, currency)}</span>)}</div>}<p className="chart-note">{t.projectionNote}</p></div>
-        </div>
+  const MajorWithdrawalsSection = () => (
+    <section className="major-withdrawals-card">
+      <div className="major-withdrawals-head">
+        <span className="big-icon gold"><Icon name="withdrawal"/></span>
+        <div><h3>{t.majorWithdrawals}</h3><p>{t.majorWithdrawalsHelp}</p></div>
       </div>
-      <PageActions t={t} onNavigate={navigate} back="debts" next="scenarios"/>
+      {majorWithdrawals.length ? (
+        <div className="withdrawal-list">
+          {majorWithdrawals.map((withdrawal) => (
+            <article className="withdrawal-item" key={withdrawal.id}>
+              <div><strong>{t.age} {withdrawal.age} · {amount(withdrawal.amount, currency)}</strong><span>{t.withdrawalReasons[Number(withdrawal.reason) || 0]} · {t.automaticLowestReturn}</span></div>
+              <div><button type="button" onClick={() => startEditWithdrawal(withdrawal)}>{t.withdrawalEdit}</button><button type="button" onClick={() => removeMajorWithdrawal(withdrawal.id)}>{t.withdrawalRemove}</button></div>
+            </article>
+          ))}
+        </div>
+      ) : <p className="withdrawal-empty">{t.noMajorWithdrawals}</p>}
+      {withdrawalEditorOpen ? (
+        <div className="withdrawal-editor">
+          <Field label={t.withdrawalAge} value={withdrawalDraft.age} min={retirement.currentAge} max={retirement.planToAge - 1} onChange={(next) => setWithdrawalDraft((current) => ({ ...current, age: next }))}/>
+          <Field label={t.withdrawalAmount} value={withdrawalDraft.amount} prefix={currencyPrefix} onChange={(next) => setWithdrawalDraft((current) => ({ ...current, amount: next }))}/>
+          <label className="withdrawal-reason"><span>{t.withdrawalReason}</span><select value={withdrawalDraft.reason} onChange={(event) => setWithdrawalDraft((current) => ({ ...current, reason: event.target.value }))}>{t.withdrawalReasons.map((reason, index) => <option value={String(index)} key={reason}>{reason}</option>)}</select></label>
+          <p>{t.amountAtFutureAge}<br/><strong>{t.automaticLowestReturn}</strong></p>
+          <div className="withdrawal-editor-actions"><button type="button" className="button ghost" onClick={() => setWithdrawalEditorOpen(false)}>{t.cancel}</button><button type="button" className="button primary" onClick={saveMajorWithdrawal}>{t.saveWithdrawal}</button></div>
+        </div>
+      ) : <button type="button" className="button secondary full withdrawal-add" onClick={startAddWithdrawal}><Icon name="withdrawal"/>{t.addWithdrawal}</button>}
+      {isFree && <small className="withdrawal-limit">{t.freeWithdrawalLimit}</small>}
     </section>
   );
+
+  const ReturnAssumptions = () => (
+    <details className="advanced-assumptions">
+      <summary>{t.advancedSettings}</summary>
+      <div className="fields-list retirement-fields">
+        {isFree && <div className="free-assumption-note"><Icon name="lock"/><span>{t.conservativeAssumption}</span></div>}
+        <Field label={t.cashReturn} value={isFree ? "2.5" : retirementInput.cashReturn} suffix="%" locked={isFree} onLocked={() => setUpgradeOpen(true)} onChange={(next) => updateRetirement("cashReturn", next)} max={30}/>
+        <Field label={t.investmentReturn} value={isFree ? "2.5" : retirementInput.investmentReturn} suffix="%" locked={isFree} onLocked={() => setUpgradeOpen(true)} onChange={(next) => updateRetirement("investmentReturn", next)} max={30}/>
+        <Field label={t.retirementReturn} value={isFree ? "2.5" : retirementInput.retirementReturn} suffix="%" locked={isFree} onLocked={() => setUpgradeOpen(true)} onChange={(next) => updateRetirement("retirementReturn", next)} max={30}/>
+        <Field label={t.inflation} value={retirementInput.inflation} suffix="%" onChange={(next) => updateRetirement("inflation", next)} max={20}/>
+      </div>
+    </details>
+  );
+
+  const RetirementPage = () => {
+    const milestoneRows = isFree
+      ? retirement.preRetirementYearlySummary.slice(0, 5)
+      : retirement.preRetirementYearlySummary;
+    const earliestLabel = retirement.financiallyIndependentNow
+      ? t.financiallyIndependentNow
+      : retirement.earliestRetirementAge !== null
+        ? `${t.mayRetireAt} ${retirement.earliestRetirementAge}`
+        : t.notYetAchievable;
+
+    return (
+      <section className="content-section page-section retirement-page">
+        <PageHeader eyebrow="05" title={t.retirementTitle} hint={t.retirementHint} status={<StatusPill tone={retirement.onTrack ? "teal" : "red"}>{retirement.onTrack ? t.onTrack : t.needsWork}</StatusPill>}/>
+        <div className="retirement-tabs" role="tablist" aria-label={t.retirementTitle}>
+          <button type="button" role="tab" aria-selected={retirementView === "pre"} className={retirementView === "pre" ? "active" : ""} onClick={() => setRetirementView("pre")}><strong>{t.preRetirement}</strong><span>{t.preRetirementHint}</span></button>
+          <button type="button" role="tab" aria-selected={retirementView === "post"} className={retirementView === "post" ? "active" : ""} onClick={() => setRetirementView("post")}><strong>{t.postRetirement}</strong><span>{t.postRetirementHint}</span></button>
+        </div>
+
+        {retirementView === "pre" ? (
+          <div className="retirement-grid">
+            <div className="card retirement-inputs">
+              <div className="form-card-head"><span className="big-icon blue"><Icon name="retirement"/></span><div><h2>{t.preRetirement}</h2><p>{t.preRetirementHint}</p></div></div>
+              <div className="age-grid age-grid-four">
+                <Field label={t.currentAge} value={retirementInput.currentAge} locked={calculatedAge !== null} onLocked={() => navigate("profile")} onChange={(next) => updateRetirement("currentAge", next)} max={119}/>
+                <Field label={t.retirementAge} value={retirementInput.retirementAge} onChange={(next) => updateRetirement("retirementAge", next)} max={119}/>
+                <Field label={t.retirementAccessAge} help={t.retirementAccessHelp} value={retirementInput.retirementAccessAge} onChange={(next) => updateRetirement("retirementAccessAge", next)} max={120}/>
+                <Field label={t.planToAge} value={retirementInput.planToAge} onChange={(next) => updateRetirement("planToAge", next)} max={120}/>
+              </div>
+              <div className="fields-list retirement-fields">
+                <Field label={t.cash} value={retirementInput.cashSavings} prefix={currencyPrefix} onChange={(next) => updateRetirement("cashSavings", next)}/>
+                <Field label={t.investments} value={retirementInput.investmentSavings} prefix={currencyPrefix} onChange={(next) => updateRetirement("investmentSavings", next)}/>
+                <Field label={t.retirement} value={retirementInput.retirementSavings} prefix={currencyPrefix} onChange={(next) => updateRetirement("retirementSavings", next)}/>
+                <button type="button" className="inline-link" onClick={syncRetirement}>{t.useMyBalance} · {amount(safeNumber(values.cash) + safeNumber(values.investments) + safeNumber(values.retirement), currency)}</button>
+                <Field label={t.monthlySavings} value={retirementInput.monthlySavings} prefix={currencyPrefix} onChange={(next) => updateRetirement("monthlySavings", next)}/>
+                <Field label={t.monthlyContribution} value={retirementInput.monthlyContribution} prefix={currencyPrefix} onChange={(next) => updateRetirement("monthlyContribution", next)}/>
+                <Field label={t.monthlySpending} value={retirementInput.monthlySpending} prefix={currencyPrefix} onChange={(next) => updateRetirement("monthlySpending", next)}/>
+                <Field label={t.monthlyIncome} help={t.monthlyIncomeHelp} value={retirementInput.monthlyIncome} prefix={currencyPrefix} onChange={(next) => updateRetirement("monthlyIncome", next)}/>
+                <ReturnAssumptions/>
+              </div>
+            </div>
+            <div className="retirement-results">
+              <div className={`plan-banner ${retirement.onTrack ? "on-track" : "off-track"}`}>
+                <span><Icon name={retirement.onTrack ? "check" : "retirement"}/></span>
+                <div><small>{t.preRetirement}</small><strong>{retirement.onTrack ? t.onTrack : t.needsWork}</strong></div>
+                <b>{earliestLabel}</b>
+              </div>
+              <div className="stats-grid retirement-stats">
+                <Stat label={t.targetRetirementSum} value={amount(retirement.requiredFund, currency, true)} tone="gold"/>
+                <Stat label={t.projectedFund} value={amount(retirement.projectedFund, currency, true)} tone="blue"/>
+                <Stat label={t.fundingGap} value={amount(retirement.gap, currency, true)} tone={retirement.gap >= 0 ? "teal" : "red"}/>
+                <Stat label={t.earliestRetirementAge} value={retirement.earliestRetirementAge ?? "—"} tone={retirement.earliestRetirementAge !== null ? "teal" : "red"}/>
+              </div>
+              <div className={`saving-callout ${retirement.monthlySavingShortfall <= 0 ? "saving-ok" : ""}`}>
+                <span>{t.requiredMonthlySavings}</span>
+                <strong>{amount(retirement.monthlySavingNeeded, currency)} {t.perMonth}</strong>
+                <small>{retirement.monthlySavingShortfall > 0 ? `${t.increaseSavingsBy} ${amount(retirement.monthlySavingShortfall, currency)}` : t.onTrack}</small>
+              </div>
+              {retirement.retirementAge < retirement.retirementAccessAge && (
+                <div className="card bridge-card"><div><Icon name="lock"/><span><strong>{t.bridgePeriod}</strong><small>{t.bridgePeriodHelp}</small></span></div><div><span>{t.projectedAccessibleFund}<strong>{amount(retirement.projectedAccessibleFund, currency)}</strong></span><span>{t.projectedLockedFund}<strong>{amount(retirement.projectedLockedFund, currency)}</strong></span></div></div>
+              )}
+              {retirement.unfundedMajorWithdrawals > 0 && <div className="saving-callout"><span>{t.unfundedExpense}</span><strong>{amount(retirement.unfundedMajorWithdrawals, currency)}</strong></div>}
+              <div className="card target-table-card">
+                <div className="chart-head"><div><h3>{t.yearlyTargets}</h3><p>{t.yearlyTargetsHint}</p></div>{isFree && <StatusPill tone="blue">5 {t.years || "years"}</StatusPill>}</div>
+                <div className="target-table">
+                  <div className="target-row target-head"><span>{t.age}</span><span>{t.projectedBalance}</span><span>{t.targetBalance}</span><span>{t.fundingGap}</span></div>
+                  {milestoneRows.map((row) => <div className="target-row" key={row.age}><strong>{row.age}</strong><span>{amount(row.endingBalance, currency, true)}</span><span>{amount(row.targetBalance, currency, true)}</span><span className={row.gap >= 0 ? "positive" : "negative"}>{amount(row.gap, currency, true)}</span></div>)}
+                </div>
+                {isFree && retirement.preRetirementYearlySummary.length > 5 && <small className="withdrawal-limit">{t.freePreYearlyLimit}</small>}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="retirement-grid">
+            <div className="card retirement-inputs">
+              <div className="form-card-head"><span className="big-icon blue"><Icon name="retirement"/></span><div><h2>{t.postRetirement}</h2><p>{t.postRetirementHint}</p></div></div>
+              <div className="age-grid">
+                <Field label={t.retirementAge} value={retirementInput.retirementAge} onChange={(next) => updateRetirement("retirementAge", next)} max={119}/>
+                <Field label={t.retirementAccessAge} help={t.retirementAccessHelp} value={retirementInput.retirementAccessAge} onChange={(next) => updateRetirement("retirementAccessAge", next)} max={120}/>
+                <Field label={t.planToAge} value={retirementInput.planToAge} onChange={(next) => updateRetirement("planToAge", next)} max={120}/>
+              </div>
+              <div className="fields-list retirement-fields">
+                <Field label={t.monthlySpending} value={retirementInput.monthlySpending} prefix={currencyPrefix} onChange={(next) => updateRetirement("monthlySpending", next)}/>
+                <button type="button" className="inline-link" onClick={useMaximumSpending}>{t.useMaximumSpending} · {amount(retirement.maximumMonthlySpending, currency)}</button>
+                <Field label={t.monthlyIncome} help={t.monthlyIncomeHelp} value={retirementInput.monthlyIncome} prefix={currencyPrefix} onChange={(next) => updateRetirement("monthlyIncome", next)}/>
+                <ReturnAssumptions/>
+                <MajorWithdrawalsSection/>
+              </div>
+            </div>
+            <div className="retirement-results">
+              <div className={`plan-banner ${retirement.onTrack ? "on-track" : "off-track"}`}>
+                <span><Icon name={retirement.onTrack ? "check" : "retirement"}/></span>
+                <div><small>{t.postRetirement}</small><strong>{retirement.onTrack ? t.onTrack : t.needsWork}</strong></div>
+                <b>{t.lastsUntil}: {t.age} {retirement.lastsUntil}</b>
+              </div>
+              <div className="stats-grid retirement-stats">
+                <Stat label={t.projectedFund} value={amount(retirement.projectedFund, currency, true)} tone="blue"/>
+                <Stat label={t.maximumMonthlySpending} value={amount(retirement.maximumMonthlySpending, currency, true)} tone="teal"/>
+                <Stat label={t.firstYearSpend} value={amount(retirement.firstYearSpend, currency, true)} tone="neutral"/>
+                <Stat label={t.endingBalance} value={amount(retirement.endBalance, currency, true)} tone={retirement.onTrack ? "teal" : "red"}/>
+              </div>
+              {retirement.unfundedMajorWithdrawals > 0 && <div className="saving-callout"><span>{t.unfundedExpense}</span><strong>{amount(retirement.unfundedMajorWithdrawals, currency)}</strong></div>}
+              {baselineRetirement && <div className="card withdrawal-impact"><h3>{t.withdrawalImpact}</h3><div><span>{t.beforeWithdrawal}<strong>{amount(baselineRetirement.maximumMonthlySpending, currency)} {t.perMonth}</strong><small>{t.lastsUntil}: {t.age} {baselineRetirement.lastsUntil}</small></span><span>{t.afterWithdrawal}<strong>{amount(retirement.maximumMonthlySpending, currency)} {t.perMonth}</strong><small>{t.lastsUntil}: {t.age} {retirement.lastsUntil}</small></span></div></div>}
+              <div className="card chart-card"><div className="chart-head"><div><h3>{t.projection}</h3><p>{t.currentAge} {retirement.currentAge} → {t.planToAge} {retirement.planToAge}</p></div><StatusPill tone="blue">{t.retirementAge}: {retirement.retirementAge}</StatusPill></div><ProjectionChart data={retirement.timeline} retirementAge={retirement.retirementAge} currency={currency} withdrawals={majorWithdrawals}/>{majorWithdrawals.length > 0 && <div className="chart-events">{majorWithdrawals.map((withdrawal) => <span key={withdrawal.id}>{t.age} {withdrawal.age}: {t.withdrawalReasons[Number(withdrawal.reason) || 0]} −{amount(withdrawal.amount, currency)}</span>)}</div>}<p className="chart-note">{t.projectionNote}</p></div>
+            </div>
+          </div>
+        )}
+        <PageActions t={t} onNavigate={navigate} back="debts" next="scenarios"/>
+      </section>
+    );
+  };
 
   const ScenariosPage = () => (
     <section className="content-section page-section">
@@ -792,7 +871,7 @@ export default function App() {
             <Stat label={t.runway} value={`${balance.runway.toFixed(1)}`} note={`${t.months} · ${runwayComment}`} tone={balance.runway >= 12 ? "teal" : balance.runway >= 6 ? "gold" : "red"}/>
           </div>
           <div className="report-retirement-shell">
-            <div className="report-retirement"><span>{t.retirementTitle}</span><strong>{retirement.onTrack ? t.onTrack : t.needsWork}</strong><b>{t.projectedFund}: {amount(retirement.projectedFund, currency, true)}</b></div>
+            <div className="report-retirement"><span>{t.retirementTitle}</span><strong>{retirement.onTrack ? t.onTrack : t.needsWork}</strong><b>{t.earliestRetirementAge}: {retirement.earliestRetirementAge ?? "—"}<br/>{t.projectedFund}: {amount(retirement.projectedFund, currency, true)}</b></div>
           </div>
           <section className="quarterly-progress">
             <div className="quarterly-progress-head">
