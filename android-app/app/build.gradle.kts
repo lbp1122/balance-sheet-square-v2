@@ -12,6 +12,7 @@ android {
         targetSdk = 36
         versionCode = 7
         versionName = "2.3.0"
+        resValue("string", "app_name", "Balance Sheet Square")
     }
 
     buildFeatures {
