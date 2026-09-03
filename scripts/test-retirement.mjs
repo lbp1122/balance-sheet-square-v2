@@ -97,4 +97,22 @@ const lockedOnly = calculateRetirement(plan({
 assert.equal(lockedOnly.onTrack, false, "a large locked balance alone must not falsely pass the early-retirement bridge");
 assert.ok(lockedOnly.earliestRetirementAge >= 55);
 
+
+const cashFlow = calculateRetirement(plan({currentAge:40,retirementAge:41,retirementAccessAge:40,planToAge:42,cashSavings:0,investmentSavings:0,retirementSavings:0,preRetirementIncome:10000,preRetirementExpenses:5000,monthlyContribution:2400,retirementContributionSource:"income",cashReturn:0,investmentReturn:0,retirementReturn:0,inflation:0,monthlySpending:0,monthlyIncome:0,moneyEvents:[],majorWithdrawals:[]}));
+assert.equal(cashFlow.projectedPools.investments,31200);
+assert.equal(cashFlow.projectedPools.retirement,28800);
+assert.equal(cashFlow.availableMonthlySavings,2600);
+
+const zeroIncome = calculateRetirement(plan({currentAge:40,retirementAge:41,retirementAccessAge:40,planToAge:42,cashSavings:0,investmentSavings:0,retirementSavings:0,preRetirementIncome:0,preRetirementExpenses:0,monthlyContribution:2400,retirementContributionSource:"income",cashReturn:0,investmentReturn:0,retirementReturn:0,inflation:0,monthlySpending:0,monthlyIncome:0,moneyEvents:[],majorWithdrawals:[]}));
+assert.equal(zeroIncome.projectedPools.retirement,0);
+
+const external = calculateRetirement(plan({currentAge:40,retirementAge:41,retirementAccessAge:40,planToAge:42,cashSavings:0,investmentSavings:0,retirementSavings:0,preRetirementIncome:0,preRetirementExpenses:0,monthlyContribution:2400,retirementContributionSource:"external",cashReturn:0,investmentReturn:0,retirementReturn:0,inflation:0,monthlySpending:0,monthlyIncome:0,moneyEvents:[],majorWithdrawals:[]}));
+assert.equal(external.projectedPools.retirement,28800);
+
+const addEvent = calculateRetirement(plan({currentAge:40,retirementAge:41,retirementAccessAge:40,planToAge:42,cashSavings:0,investmentSavings:0,retirementSavings:0,preRetirementIncome:0,preRetirementExpenses:0,monthlyContribution:0,retirementContributionSource:"income",cashReturn:0,investmentReturn:0,retirementReturn:0,inflation:0,monthlySpending:0,monthlyIncome:0,moneyEvents:[{id:"sale",type:"add",age:40,month:6,amount:5000,reason:"0",destination:"investments"}],majorWithdrawals:[]}));
+assert.equal(addEvent.projectedPools.investments,5000);
+assert.equal(addEvent.totalMoneyAdded,5000);
+
+const rescue = calculateRetirement(plan({currentAge:60,retirementAge:60,retirementAccessAge:55,planToAge:62,cashSavings:1000,investmentSavings:0,retirementSavings:0,preRetirementIncome:0,preRetirementExpenses:0,monthlyContribution:0,retirementContributionSource:"income",cashReturn:0,investmentReturn:0,retirementReturn:0,inflation:0,monthlySpending:1000,monthlyIncome:0,moneyEvents:[{id:"inheritance",type:"add",age:60,month:1,amount:30000,reason:"2",destination:"cash"}],majorWithdrawals:[]}));
+assert.equal(rescue.onTrack,true);
 console.log("Retirement calculation tests passed.");
