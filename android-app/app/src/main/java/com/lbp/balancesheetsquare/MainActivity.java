@@ -58,7 +58,7 @@ public class MainActivity extends Activity implements PurchasesUpdatedListener {
     private boolean showingOfflinePage;
     private BillingClient billingClient;
     private ProductDetails fullVersionProduct;
-    private boolean premiumUnlocked;
+    private boolean premiumUnlocked = BuildConfig.DIRECT_PAID;
     private boolean manualRestore;
 
     @Override
@@ -77,7 +77,7 @@ public class MainActivity extends Activity implements PurchasesUpdatedListener {
         });
         setContentView(webView);
 
-        initializeBilling();
+        if (!BuildConfig.DIRECT_PAID) initializeBilling();
 
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
@@ -223,6 +223,10 @@ public class MainActivity extends Activity implements PurchasesUpdatedListener {
     }
 
     private void launchFullVersionPurchase() {
+        if (BuildConfig.DIRECT_PAID) {
+            notifyEntitlement(true, "purchaseRestored");
+            return;
+        }
         if (billingClient == null || !billingClient.isReady()) {
             connectBilling();
             notifyEntitlement(premiumUnlocked, "billingConnecting");
@@ -360,7 +364,11 @@ public class MainActivity extends Activity implements PurchasesUpdatedListener {
 
         @JavascriptInterface
         public void restorePurchases() {
-            runOnUiThread(() -> queryOwnedPurchases(true));
+            if (BuildConfig.DIRECT_PAID) {
+                runOnUiThread(() -> notifyEntitlement(true, "purchaseRestored"));
+            } else {
+                runOnUiThread(() -> queryOwnedPurchases(true));
+            }
         }
 
         @JavascriptInterface

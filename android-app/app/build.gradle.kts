@@ -2,6 +2,8 @@ plugins {
     id("com.android.application")
 }
 
+val directPaid = providers.gradleProperty("directPaid").orNull == "true"
+
 android {
     namespace = "com.lbp.balancesheetsquare"
     compileSdk = 36
@@ -12,6 +14,7 @@ android {
         targetSdk = 36
         versionCode = 7
         versionName = "2.3.0"
+        buildConfigField("boolean", "DIRECT_PAID", directPaid.toString())
         resValue("string", "app_name", "Balance Sheet Square")
     }
 
