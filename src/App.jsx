@@ -679,11 +679,11 @@ export default function App() {
     );
   };
 
-  const MajorWithdrawalsSection = () => (
+  const MajorWithdrawalsSection = (title = t.majorWithdrawals, help = t.majorWithdrawalsHelp) => (
     <section className="major-withdrawals-card">
       <div className="major-withdrawals-head">
         <span className="big-icon gold"><Icon name="withdrawal"/></span>
-        <div><h3>{t.majorWithdrawals}</h3><p>{t.majorWithdrawalsHelp}</p></div>
+        <div><h3>{title}</h3><p>{help}</p></div>
       </div>
       {majorWithdrawals.length ? (
         <div className="withdrawal-list">
@@ -764,6 +764,7 @@ export default function App() {
                 <Field label={t.desiredRetirementSpending} value={retirementInput.monthlySpending} prefix={currencyPrefix} onChange={(next) => updateRetirement("monthlySpending", next)}/>
                 <Field label={t.monthlyIncome} help={t.monthlyIncomeHelp} value={retirementInput.monthlyIncome} prefix={currencyPrefix} onChange={(next) => updateRetirement("monthlyIncome", next)}/>
                 {ReturnAssumptions()}
+                {MajorWithdrawalsSection(t.plannedLargeExpenses, t.plannedLargeExpensesHelp)}
               </div>
             </div>
             <div className="retirement-results">
