@@ -156,6 +156,7 @@ function projectToRetirement(input, monthlySavingsOverride = null, monthlyContri
       monthlySavings, annualSavings, monthlyRetirementContribution:annualContribution/12, annualRetirementContribution:annualContribution,
       totalReturn:annualReturn, moneyAdded:annualAdded, moneyWithdrawn:annualWithdrawn, netMoneyEvents:annualAdded-annualWithdrawn,
       majorWithdrawals:annualWithdrawn, unfundedCashFlow:annualUnfundedCashFlow,
+      cashBalance:Math.max(0,pools.cash), investmentBalance:Math.max(0,pools.investments), retirementBalance:Math.max(0,pools.retirement),
       accessibleBalance:accessibleTotal(pools,age+1>=retirementAccessAge), lockedBalance:age+1>=retirementAccessAge?0:pools.retirement, endingBalance:totalPools(pools),
     });
     if(includeTimeline) timeline.push({age:age+1,balance:Math.max(0,totalPools(pools)),phase:age+1===retirementAge?"retirement":"saving"});
@@ -224,7 +225,9 @@ function simulateRetirement(input, initialPools, includeTimeline = false, stopAg
       cashReturn:annualCashReturn,investmentReturn:annualInvestmentReturn,retirementReturn:annualRetirementReturn,
       monthlyIncome:annualIncome/12,annualIncome,totalReturn:annualCashReturn+annualInvestmentReturn+annualRetirementReturn,
       moneyAdded:annualAdded,moneyWithdrawn:annualWithdrawn,netMoneyEvents:annualAdded-annualWithdrawn,majorWithdrawals:annualWithdrawn,
-      unfundedWithdrawals:annualUnfundedWithdrawals,endingBalance:Math.max(0,totalPools(pools)),
+      unfundedWithdrawals:annualUnfundedWithdrawals,
+      cashBalance:Math.max(0,pools.cash),investmentBalance:Math.max(0,pools.investments),retirementBalance:Math.max(0,pools.retirement),
+      endingBalance:Math.max(0,totalPools(pools)),
       accessibleBalance:accessibleTotal(pools,age+1>=retirementAccessAge),lockedBalance:age+1>=retirementAccessAge?0:pools.retirement,
     });
     if(includeTimeline)timeline.push({age:age+1,balance:Math.max(0,totalPools(pools)),phase:"retired"});

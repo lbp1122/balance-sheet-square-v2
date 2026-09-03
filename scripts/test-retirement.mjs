@@ -115,4 +115,19 @@ assert.equal(addEvent.totalMoneyAdded,5000);
 
 const rescue = calculateRetirement(plan({currentAge:60,retirementAge:60,retirementAccessAge:55,planToAge:62,cashSavings:1000,investmentSavings:0,retirementSavings:0,preRetirementIncome:0,preRetirementExpenses:0,monthlyContribution:0,retirementContributionSource:"income",cashReturn:0,investmentReturn:0,retirementReturn:0,inflation:0,monthlySpending:1000,monthlyIncome:0,moneyEvents:[{id:"inheritance",type:"add",age:60,month:1,amount:30000,reason:"2",destination:"cash"}],majorWithdrawals:[]}));
 assert.equal(rescue.onTrack,true);
+
+const preBalanceRow = cashFlow.preRetirementYearlySummary[0];
+assert.equal(
+  Math.round((preBalanceRow.cashBalance + preBalanceRow.investmentBalance + preBalanceRow.retirementBalance) * 100) / 100,
+  Math.round(preBalanceRow.endingBalance * 100) / 100,
+  "pre-retirement year-end fund balances should reconcile to total ending balance"
+);
+
+const postBalanceRow = rescue.yearlySummary[0];
+assert.equal(
+  Math.round((postBalanceRow.cashBalance + postBalanceRow.investmentBalance + postBalanceRow.retirementBalance) * 100) / 100,
+  Math.round(postBalanceRow.endingBalance * 100) / 100,
+  "post-retirement year-end fund balances should reconcile to total ending balance"
+);
+
 console.log("Retirement calculation tests passed.");
