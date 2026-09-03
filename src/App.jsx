@@ -439,6 +439,10 @@ export default function App() {
       monthlySpending: String(calculateMaxMonthlySpending(current)),
     }));
   };
+  const switchRetirementView = (view) => {
+    setRetirementView(view);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
   const startAddWithdrawal = () => {
     if (isFree && majorWithdrawals.length >= 1) {
       setUpgradeOpen(true);
@@ -726,6 +730,11 @@ export default function App() {
       : retirement.earliestRetirementAge !== null
         ? `${t.mayRetireAt} ${retirement.earliestRetirementAge}`
         : t.notYetAchievable;
+    const postOutcome = (result) => {
+      if (!result.onTrack) return `${t.fundsMayRunOutAt} ${result.lastsUntil}`;
+      if (result.endBalance > 100) return `${t.remainingFundAtAge} ${result.planToAge}: ${amount(result.endBalance, currency, true)}`;
+      return `${t.fundsSupportThroughAge} ${result.planToAge}`;
+    };
 
     return (
       <section className="content-section page-section retirement-page">
@@ -752,9 +761,9 @@ export default function App() {
                 <button type="button" className="inline-link" onClick={syncRetirement}>{t.useMyBalance} · {amount(safeNumber(values.cash) + safeNumber(values.investments) + safeNumber(values.retirement), currency)}</button>
                 <Field label={t.monthlySavings} value={retirementInput.monthlySavings} prefix={currencyPrefix} onChange={(next) => updateRetirement("monthlySavings", next)}/>
                 <Field label={t.monthlyContribution} value={retirementInput.monthlyContribution} prefix={currencyPrefix} onChange={(next) => updateRetirement("monthlyContribution", next)}/>
-                <Field label={t.monthlySpending} value={retirementInput.monthlySpending} prefix={currencyPrefix} onChange={(next) => updateRetirement("monthlySpending", next)}/>
+                <Field label={t.desiredRetirementSpending} value={retirementInput.monthlySpending} prefix={currencyPrefix} onChange={(next) => updateRetirement("monthlySpending", next)}/>
                 <Field label={t.monthlyIncome} help={t.monthlyIncomeHelp} value={retirementInput.monthlyIncome} prefix={currencyPrefix} onChange={(next) => updateRetirement("monthlyIncome", next)}/>
-                <ReturnAssumptions/>
+                {ReturnAssumptions()}
               </div>
             </div>
             <div className="retirement-results">
@@ -801,29 +810,31 @@ export default function App() {
                 <Field label={t.monthlySpending} value={retirementInput.monthlySpending} prefix={currencyPrefix} onChange={(next) => updateRetirement("monthlySpending", next)}/>
                 <button type="button" className="inline-link" onClick={useMaximumSpending}>{t.useMaximumSpending} · {amount(retirement.maximumMonthlySpending, currency)}</button>
                 <Field label={t.monthlyIncome} help={t.monthlyIncomeHelp} value={retirementInput.monthlyIncome} prefix={currencyPrefix} onChange={(next) => updateRetirement("monthlyIncome", next)}/>
-                <ReturnAssumptions/>
-                <MajorWithdrawalsSection/>
+                {ReturnAssumptions()}
+                {MajorWithdrawalsSection()}
               </div>
             </div>
             <div className="retirement-results">
               <div className={`plan-banner ${retirement.onTrack ? "on-track" : "off-track"}`}>
                 <span><Icon name={retirement.onTrack ? "check" : "retirement"}/></span>
                 <div><small>{t.postRetirement}</small><strong>{retirement.onTrack ? t.onTrack : t.needsWork}</strong></div>
-                <b>{t.lastsUntil}: {t.age} {retirement.lastsUntil}</b>
+                <b>{postOutcome(retirement)}</b>
               </div>
               <div className="stats-grid retirement-stats">
                 <Stat label={t.projectedFund} value={amount(retirement.projectedFund, currency, true)} tone="blue"/>
                 <Stat label={t.maximumMonthlySpending} value={amount(retirement.maximumMonthlySpending, currency, true)} tone="teal"/>
                 <Stat label={t.firstYearSpend} value={amount(retirement.firstYearSpend, currency, true)} tone="neutral"/>
-                <Stat label={t.endingBalance} value={amount(retirement.endBalance, currency, true)} tone={retirement.onTrack ? "teal" : "red"}/>
+                <Stat label={`${t.remainingFundAtAge} ${retirement.planToAge}`} value={amount(retirement.endBalance, currency, true)} tone={retirement.onTrack ? "teal" : "red"}/>
               </div>
               {retirement.unfundedMajorWithdrawals > 0 && <div className="saving-callout"><span>{t.unfundedExpense}</span><strong>{amount(retirement.unfundedMajorWithdrawals, currency)}</strong></div>}
-              {baselineRetirement && <div className="card withdrawal-impact"><h3>{t.withdrawalImpact}</h3><div><span>{t.beforeWithdrawal}<strong>{amount(baselineRetirement.maximumMonthlySpending, currency)} {t.perMonth}</strong><small>{t.lastsUntil}: {t.age} {baselineRetirement.lastsUntil}</small></span><span>{t.afterWithdrawal}<strong>{amount(retirement.maximumMonthlySpending, currency)} {t.perMonth}</strong><small>{t.lastsUntil}: {t.age} {retirement.lastsUntil}</small></span></div></div>}
+              {baselineRetirement && <div className="card withdrawal-impact"><h3>{t.withdrawalImpact}</h3><div><span>{t.beforeWithdrawal}<strong>{amount(baselineRetirement.maximumMonthlySpending, currency)} {t.perMonth}</strong><small>{postOutcome(baselineRetirement)}</small></span><span>{t.afterWithdrawal}<strong>{amount(retirement.maximumMonthlySpending, currency)} {t.perMonth}</strong><small>{postOutcome(retirement)}</small></span></div></div>}
               <div className="card chart-card"><div className="chart-head"><div><h3>{t.projection}</h3><p>{t.currentAge} {retirement.currentAge} → {t.planToAge} {retirement.planToAge}</p></div><StatusPill tone="blue">{t.retirementAge}: {retirement.retirementAge}</StatusPill></div><ProjectionChart data={retirement.timeline} retirementAge={retirement.retirementAge} currency={currency} withdrawals={majorWithdrawals}/>{majorWithdrawals.length > 0 && <div className="chart-events">{majorWithdrawals.map((withdrawal) => <span key={withdrawal.id}>{t.age} {withdrawal.age}: {t.withdrawalReasons[Number(withdrawal.reason) || 0]} −{amount(withdrawal.amount, currency)}</span>)}</div>}<p className="chart-note">{t.projectionNote}</p></div>
             </div>
           </div>
         )}
-        <PageActions t={t} onNavigate={navigate} back="debts" next="scenarios"/>
+        {retirementView === "pre"
+          ? <PageActions t={t} onNavigate={(target) => target === "post" ? switchRetirementView("post") : navigate(target)} back="debts" next="post"/>
+          : <PageActions t={t} onNavigate={(target) => target === "pre" ? switchRetirementView("pre") : navigate(target)} back="pre" next="report"/>}
       </section>
     );
   };
@@ -871,7 +882,7 @@ export default function App() {
             <Stat label={t.runway} value={`${balance.runway.toFixed(1)}`} note={`${t.months} · ${runwayComment}`} tone={balance.runway >= 12 ? "teal" : balance.runway >= 6 ? "gold" : "red"}/>
           </div>
           <div className="report-retirement-shell">
-            <div className="report-retirement"><span>{t.retirementTitle}</span><strong>{retirement.onTrack ? t.onTrack : t.needsWork}</strong><b>{t.earliestRetirementAge}: {retirement.earliestRetirementAge ?? "—"}<br/>{t.projectedFund}: {amount(retirement.projectedFund, currency, true)}</b></div>
+            <div className="report-retirement"><span>{t.postRetirement}</span><strong>{retirement.onTrack ? t.onTrack : t.needsWork}</strong><b>{t.earliestRetirementAge}: {retirement.earliestRetirementAge ?? "—"}<br/>{t.projectedFund}: {amount(retirement.projectedFund, currency, true)}</b></div>
           </div>
           <section className="quarterly-progress">
             <div className="quarterly-progress-head">

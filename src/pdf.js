@@ -602,7 +602,7 @@ export async function createReportPdf({ profile = {}, calculatedAge = null, valu
     context.fillRect(64, retirementY, 1112, retirementH);
     context.fillStyle = "#aebdd3";
     context.font = '800 14px system-ui, "Noto Sans", sans-serif';
-    context.fillText(t.retirementTitle.toUpperCase(), 86, retirementY + 28);
+    context.fillText(t.postRetirement.toUpperCase(), 86, retirementY + 28);
     context.fillStyle = retirement.onTrack ? teal : red;
     context.font = '900 24px system-ui, "Noto Sans", sans-serif';
     context.fillText(retirement.onTrack ? t.onTrack : t.needsWork, 86, retirementY + 68);
