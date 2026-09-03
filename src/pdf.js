@@ -90,6 +90,13 @@ export function blobToBase64(blob) {
   });
 }
 
+function moneyEventCell(row, currency) {
+  const added=safeNumber(row.moneyAdded),withdrawn=safeNumber(row.moneyWithdrawn);
+  if(!added&&!withdrawn)return "—";
+  return [added?`+${amount(added,currency,true)}`:"",withdrawn?`−${amount(withdrawn,currency,true)}`:""].filter(Boolean).join(" / ");
+}
+function moneyEventReason(event,t){const reasons=event.type==="add"?t.addMoneyReasons:t.withdrawMoneyReasons;return reasons[Number(event.reason)||0]||"";}
+
 function createPreRetirementSummaryCanvases({ retirement, currency, language, t, isFree, colors }) {
   const width = 1754;
   const height = 1240;
@@ -106,7 +113,7 @@ function createPreRetirementSummaryCanvases({ retirement, currency, language, t,
     [t.annualSavings, 145, "right"],
     [t.annualRetirementContribution, 165, "right"],
     [t.totalReturn, 135, "right"],
-    [t.majorWithdrawals, 140, "right"],
+    [t.oneTimeMoneyEvents, 140, "right"],
     [t.accessibleBalance, 155, "right"],
     [t.lockedBalance, 155, "right"],
     [t.projectedBalance, 155, "right"],
@@ -181,7 +188,7 @@ function createPreRetirementSummaryCanvases({ retirement, currency, language, t,
         amount(row.annualSavings, currency, true),
         amount(row.annualRetirementContribution, currency, true),
         amount(row.totalReturn, currency, true),
-        amount(row.majorWithdrawals, currency, true),
+        moneyEventCell(row, currency),
         amount(row.accessibleBalance, currency, true),
         amount(row.lockedBalance, currency, true),
         amount(row.endingBalance, currency, true),
@@ -240,7 +247,7 @@ function createYearlySummaryCanvases({ retirement, currency, language, t, isFree
     [t.otherMonthlyIncome, 135, "right"],
     [t.otherYearlyIncome, 135, "right"],
     [t.totalReturn, 115, "right"],
-    [t.majorWithdrawals, 130, "right"],
+    [t.oneTimeMoneyEvents, 130, "right"],
     [t.endingBalance, 141, "right"],
   ];
   const tableX = 46;
@@ -276,7 +283,7 @@ function createYearlySummaryCanvases({ retirement, currency, language, t, isFree
     const cards = [
       [t.projectedFund, retirement.projectedFund, colors.blue],
       [t.maximumMonthlySpending, retirement.maximumMonthlySpending, colors.teal],
-      [t.majorWithdrawals, retirement.totalMajorWithdrawals, retirement.totalMajorWithdrawals > 0 ? colors.red : colors.navy],
+      [t.oneTimeMoneyEvents, retirement.totalMoneyAdded-retirement.totalMoneyWithdrawn, retirement.totalMoneyAdded>=retirement.totalMoneyWithdrawn?colors.teal:colors.red],
     ];
     cards.forEach(([label, value, color], index) => {
       const x = 54 + index * 554;
@@ -290,9 +297,9 @@ function createYearlySummaryCanvases({ retirement, currency, language, t, isFree
       context.fillText(amount(value, currency), x + 20, 263);
     });
 
-    if (retirement.scheduledMajorWithdrawals.length) {
-      const schedule = retirement.scheduledMajorWithdrawals
-        .map((item) => `${t.age} ${item.age}: ${t.withdrawalReasons[Number(item.reason) || 0]} −${amount(item.amount, currency, true)}`)
+    if (retirement.scheduledMoneyEvents.length) {
+      const schedule = retirement.scheduledMoneyEvents
+        .map((item) => `${t.age} ${item.age}/${item.month}: ${moneyEventReason(item,t)} ${item.type==="add"?"+":"−"}${amount(item.amount,currency,true)}`)
         .join("   ·   ");
       context.fillStyle = colors.muted;
       context.font = '750 15px system-ui, "Noto Sans", sans-serif';
@@ -327,7 +334,7 @@ function createYearlySummaryCanvases({ retirement, currency, language, t, isFree
         amount(row.monthlyIncome, currency, true),
         amount(row.annualIncome, currency, true),
         amount(row.totalReturn, currency, true),
-        amount(row.majorWithdrawals, currency, true),
+        moneyEventCell(row, currency),
         amount(row.endingBalance, currency, true),
       ];
       let cellX = tableX;
