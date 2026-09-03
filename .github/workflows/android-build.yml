@@ -15,7 +15,7 @@ on:
       - ".github/workflows/android-build.yml"
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -62,6 +62,24 @@ jobs:
           cp android-app/app/build/outputs/apk/paid/debug/app-paid-debug.apk balance-sheet-square-paid.apk
           cp android-app/app/build/outputs/bundle/freeRelease/app-free-release.aab balance-sheet-square-free.aab
           cp android-app/app/build/outputs/bundle/paidRelease/app-paid-release.aab balance-sheet-square-paid.aab
+
+      - name: Read app version
+        id: app_version
+        run: |
+          VERSION_NAME=$(sed -n 's/.*versionName = "\([^"]*\)".*/\1/p' android-app/app/build.gradle.kts)
+          echo "version_name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Publish permanent GitHub download links
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.app_version.outputs.version_name }}
+          name: Balance Sheet Square v${{ steps.app_version.outputs.version_name }}
+          generate_release_notes: true
+          files: |
+            balance-sheet-square-free.apk
+            balance-sheet-square-paid.apk
+            balance-sheet-square-free.aab
+            balance-sheet-square-paid.aab
 
       - name: Upload Free APK
         uses: actions/upload-artifact@v4

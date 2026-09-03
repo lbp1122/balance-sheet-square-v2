@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { assetKeys, debtKeys, defaultProfile, defaultRetirement, defaultValues, scenarios, translations } from "./data.js";
-import { amount, calculateBalance, calculateRetirement, safeNumber } from "./finance.js";
+import { amount, calculateBalance, calculateMaxMonthlySpending, calculateRetirement, safeNumber } from "./finance.js";
 import { blobToBase64, createReportPdf, downloadBlob } from "./pdf.js";
 
 const pageOrder = ["home", "profile", "square", "assets", "debts", "retirement", "scenarios", "report"];
@@ -21,7 +21,7 @@ function ageFromBirthDate(value) {
     today.getMonth() < birth.getMonth() ||
     (today.getMonth() === birth.getMonth() && today.getDate() < birth.getDate());
   if (beforeBirthday) age -= 1;
-  return age >= 0 && age <= 110 ? age : null;
+  return age >= 0 && age <= 120 ? age : null;
 }
 
 function Icon({ name }) {
@@ -31,6 +31,7 @@ function Icon({ name }) {
     assets: <><path d="M4 19h16M6 16l4-5 3 3 5-7"/><path d="m15 7 3 0 0 3"/></>,
     debts: <><path d="M4 6h16v12H4z"/><path d="M8 10h8M8 14h5"/></>,
     retirement: <><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2M7 3l-2 3M17 3l2 3"/></>,
+    withdrawal: <><path d="M12 3v12M7.5 10.5 12 15l4.5-4.5"/><path d="M5 20h14"/></>,
     scenarios: <><path d="M5 5h14v14H5z"/><path d="M9 9h6M9 13h6M9 17h3"/></>,
     report: <><path d="M6 3h9l3 3v15H6z"/><path d="M14 3v4h4M9 12h6M9 16h6"/></>,
     next: <path d="m9 5 7 7-7 7"/>,
@@ -202,7 +203,7 @@ function PageActions({ t, onNavigate, back, next }) {
   );
 }
 
-function ProjectionChart({ data, retirementAge, currency }) {
+function ProjectionChart({ data, retirementAge, currency, withdrawals = [] }) {
   const width = 760;
   const height = 240;
   const padding = 24;
@@ -224,6 +225,11 @@ function ProjectionChart({ data, retirementAge, currency }) {
         <path d={path} className="chart-line"/>
         <line x1={retirementPoint.x} x2={retirementPoint.x} y1={padding} y2={height - padding} className="retire-line"/>
         <circle cx={retirementPoint.x} cy={retirementPoint.y} r="6" className="retire-dot"/>
+        {withdrawals.map((withdrawal) => {
+          const point = points.find((item) => item.age === Math.round(safeNumber(withdrawal.age)));
+          if (!point) return null;
+          return <g key={withdrawal.id}><line x1={point.x} x2={point.x} y1={padding} y2={height - padding} className="withdrawal-line"/><circle cx={point.x} cy={point.y} r="6" className="withdrawal-dot"/></g>;
+        })}
       </svg>
       <div className="chart-legend"><span>{data[0]?.age}</span><strong>{amount(max, currency, true)} max</strong><span>{data.at(-1)?.age}</span></div>
     </div>
@@ -311,11 +317,19 @@ export default function App() {
   const [currency, setCurrency] = useState("MYR");
   const [profile, setProfile] = useState(defaultProfile);
   const [values, setValues] = useState(defaultValues);
-  const [retirementInput, setRetirementInput] = useState(defaultRetirement);
+  const [retirementInput, setRetirementInput] = useState(() => {
+    const editionDefaults = isFree
+      ? { ...defaultRetirement, cashReturn: "2.5", investmentReturn: "2.5", retirementReturn: "2.5" }
+      : { ...defaultRetirement };
+    return { ...editionDefaults, monthlySpending: String(calculateMaxMonthlySpending(editionDefaults)) };
+  });
   const [activeScenario, setActiveScenario] = useState(0);
   const [hydrated, setHydrated] = useState(false);
   const [actionStatus, setActionStatus] = useState("");
   const [quarterlyHistory, setQuarterlyHistory] = useState([]);
+  const [withdrawalEditorOpen, setWithdrawalEditorOpen] = useState(false);
+  const [editingWithdrawalId, setEditingWithdrawalId] = useState(null);
+  const [withdrawalDraft, setWithdrawalDraft] = useState({ age: String(defaultRetirement.retirementAge), amount: "", reason: "0" });
   const t = translations[language];
   const currencyPrefix = currency === "MYR" ? "MYR" : currency === "USD" ? "USD" : "CNY";
 
@@ -374,6 +388,11 @@ export default function App() {
   const balance = useMemo(() => calculateBalance(values), [values]);
   const calculatedAge = useMemo(() => ageFromBirthDate(profile.dateOfBirth), [profile.dateOfBirth]);
   const retirement = useMemo(() => calculateRetirement(retirementInput), [retirementInput]);
+  const majorWithdrawals = Array.isArray(retirementInput.majorWithdrawals) ? retirementInput.majorWithdrawals : [];
+  const baselineRetirement = useMemo(
+    () => majorWithdrawals.length ? calculateRetirement({ ...retirementInput, majorWithdrawals: [] }) : null,
+    [retirementInput, majorWithdrawals.length],
+  );
 
   useEffect(() => {
     if (calculatedAge === null) return;
@@ -403,11 +422,61 @@ export default function App() {
     navigate("square");
   };
   const syncRetirement = () => {
+    setRetirementInput((current) => {
+      const next = {
+        ...current,
+        cashSavings: String(safeNumber(values.cash)),
+        investmentSavings: String(safeNumber(values.investments)),
+        retirementSavings: String(safeNumber(values.retirement)),
+      };
+      return { ...next, monthlySpending: String(calculateMaxMonthlySpending(next)) };
+    });
+  };
+  const useMaximumSpending = () => {
     setRetirementInput((current) => ({
       ...current,
-      cashSavings: String(safeNumber(values.cash)),
-      investmentSavings: String(safeNumber(values.investments)),
-      retirementSavings: String(safeNumber(values.retirement)),
+      monthlySpending: String(calculateMaxMonthlySpending(current)),
+    }));
+  };
+  const startAddWithdrawal = () => {
+    if (isFree && majorWithdrawals.length >= 1) {
+      setUpgradeOpen(true);
+      return;
+    }
+    setEditingWithdrawalId(null);
+    setWithdrawalDraft({ age: String(retirement.retirementAge), amount: "", reason: "0" });
+    setWithdrawalEditorOpen(true);
+  };
+  const startEditWithdrawal = (withdrawal) => {
+    setEditingWithdrawalId(withdrawal.id);
+    setWithdrawalDraft({ age: String(withdrawal.age), amount: String(withdrawal.amount), reason: String(withdrawal.reason || "0") });
+    setWithdrawalEditorOpen(true);
+  };
+  const saveMajorWithdrawal = () => {
+    const age = Math.min(retirement.planToAge - 1, Math.max(retirement.currentAge, Math.round(safeNumber(withdrawalDraft.age))));
+    const withdrawalAmount = safeNumber(withdrawalDraft.amount);
+    if (withdrawalAmount <= 0) return;
+    const item = {
+      id: editingWithdrawalId || `major-${Date.now()}`,
+      age,
+      month: 1,
+      amount: withdrawalAmount,
+      reason: String(withdrawalDraft.reason || "0"),
+    };
+    setRetirementInput((current) => {
+      const existing = Array.isArray(current.majorWithdrawals) ? current.majorWithdrawals : [];
+      const next = editingWithdrawalId
+        ? existing.map((withdrawal) => withdrawal.id === editingWithdrawalId ? item : withdrawal)
+        : [...existing, item];
+      return { ...current, majorWithdrawals: next.sort((a, b) => safeNumber(a.age) - safeNumber(b.age)) };
+    });
+    setWithdrawalEditorOpen(false);
+    setEditingWithdrawalId(null);
+  };
+  const removeMajorWithdrawal = (id) => {
+    setRetirementInput((current) => ({
+      ...current,
+      majorWithdrawals: (Array.isArray(current.majorWithdrawals) ? current.majorWithdrawals : []).filter((item) => item.id !== id),
     }));
   };
   const saveQuarterlySnapshot = () => {
@@ -447,9 +516,12 @@ export default function App() {
 
   const resetAll = () => {
     if (!window.confirm(t.resetConfirm)) return;
+    const editionDefaults = isFree
+      ? { ...defaultRetirement, cashReturn: "2.5", investmentReturn: "2.5", retirementReturn: "2.5" }
+      : { ...defaultRetirement };
     setProfile({ ...defaultProfile });
     setValues({ ...defaultValues });
-    setRetirementInput({ ...defaultRetirement });
+    setRetirementInput({ ...editionDefaults, monthlySpending: String(calculateMaxMonthlySpending(editionDefaults)) });
     setActiveScenario(0);
     setActionStatus(t.saved);
   };
@@ -609,9 +681,9 @@ export default function App() {
         <div className="card retirement-inputs">
           <div className="form-card-head"><span className="big-icon blue"><Icon name="retirement"/></span><div><h2>{t.assumptions}</h2><p>{t.saved}</p></div></div>
           <div className="age-grid">
-            <Field label={t.currentAge} value={retirementInput.currentAge} locked={calculatedAge !== null} onLocked={() => navigate("profile")} onChange={(next) => updateRetirement("currentAge", next)} max={100}/>
-            <Field label={t.retirementAge} value={retirementInput.retirementAge} onChange={(next) => updateRetirement("retirementAge", next)} max={100}/>
-            <Field label={t.planToAge} value={retirementInput.planToAge} onChange={(next) => updateRetirement("planToAge", next)} max={110}/>
+            <Field label={t.currentAge} value={retirementInput.currentAge} locked={calculatedAge !== null} onLocked={() => navigate("profile")} onChange={(next) => updateRetirement("currentAge", next)} max={119}/>
+            <Field label={t.retirementAge} value={retirementInput.retirementAge} onChange={(next) => updateRetirement("retirementAge", next)} max={119}/>
+            <Field label={t.planToAge} value={retirementInput.planToAge} onChange={(next) => updateRetirement("planToAge", next)} max={120}/>
           </div>
           <div className="fields-list retirement-fields">
             <Field label={t.cash} value={retirementInput.cashSavings} prefix={currencyPrefix} onChange={(next) => updateRetirement("cashSavings", next)}/>
@@ -625,7 +697,34 @@ export default function App() {
             <Field label={t.retirementReturn} value={isFree ? "2.5" : retirementInput.retirementReturn} suffix="%" locked={isFree} onLocked={() => setUpgradeOpen(true)} onChange={(next) => updateRetirement("retirementReturn", next)} max={30}/>
             <Field label={t.inflation} value={retirementInput.inflation} suffix="%" onChange={(next) => updateRetirement("inflation", next)} max={20}/>
             <Field label={t.monthlySpending} value={retirementInput.monthlySpending} prefix={currencyPrefix} onChange={(next) => updateRetirement("monthlySpending", next)}/>
+            <button type="button" className="inline-link" onClick={useMaximumSpending}>{t.useMaximumSpending} · {amount(retirement.maximumMonthlySpending, currency)}</button>
             <Field label={t.monthlyIncome} help={t.monthlyIncomeHelp} value={retirementInput.monthlyIncome} prefix={currencyPrefix} onChange={(next) => updateRetirement("monthlyIncome", next)}/>
+            <section className="major-withdrawals-card">
+              <div className="major-withdrawals-head">
+                <span className="big-icon gold"><Icon name="withdrawal"/></span>
+                <div><h3>{t.majorWithdrawals}</h3><p>{t.majorWithdrawalsHelp}</p></div>
+              </div>
+              {majorWithdrawals.length ? (
+                <div className="withdrawal-list">
+                  {majorWithdrawals.map((withdrawal) => (
+                    <article className="withdrawal-item" key={withdrawal.id}>
+                      <div><strong>{t.age} {withdrawal.age} · {amount(withdrawal.amount, currency)}</strong><span>{t.withdrawalReasons[Number(withdrawal.reason) || 0]} · {t.automaticLowestReturn}</span></div>
+                      <div><button type="button" onClick={() => startEditWithdrawal(withdrawal)}>{t.withdrawalEdit}</button><button type="button" onClick={() => removeMajorWithdrawal(withdrawal.id)}>{t.withdrawalRemove}</button></div>
+                    </article>
+                  ))}
+                </div>
+              ) : <p className="withdrawal-empty">{t.noMajorWithdrawals}</p>}
+              {withdrawalEditorOpen ? (
+                <div className="withdrawal-editor">
+                  <Field label={t.withdrawalAge} value={withdrawalDraft.age} min={retirement.currentAge} max={retirement.planToAge - 1} onChange={(next) => setWithdrawalDraft((current) => ({ ...current, age: next }))}/>
+                  <Field label={t.withdrawalAmount} value={withdrawalDraft.amount} prefix={currencyPrefix} onChange={(next) => setWithdrawalDraft((current) => ({ ...current, amount: next }))}/>
+                  <label className="withdrawal-reason"><span>{t.withdrawalReason}</span><select value={withdrawalDraft.reason} onChange={(event) => setWithdrawalDraft((current) => ({ ...current, reason: event.target.value }))}>{t.withdrawalReasons.map((reason, index) => <option value={String(index)} key={reason}>{reason}</option>)}</select></label>
+                  <p>{t.amountAtFutureAge}<br/><strong>{t.automaticLowestReturn}</strong></p>
+                  <div className="withdrawal-editor-actions"><button type="button" className="button ghost" onClick={() => setWithdrawalEditorOpen(false)}>{t.cancel}</button><button type="button" className="button primary" onClick={saveMajorWithdrawal}>{t.saveWithdrawal}</button></div>
+                </div>
+              ) : <button type="button" className="button secondary full withdrawal-add" onClick={startAddWithdrawal}><Icon name="withdrawal"/>{t.addWithdrawal}</button>}
+              {isFree && <small className="withdrawal-limit">{t.freeWithdrawalLimit}</small>}
+            </section>
           </div>
         </div>
         <div className="retirement-results">
@@ -641,7 +740,9 @@ export default function App() {
             <Stat label={t.firstYearSpend} value={amount(retirement.firstYearSpend, currency, true)} tone="neutral"/>
           </div>
           {!retirement.onTrack && retirement.monthlySavingNeeded > 0 && <div className="saving-callout"><span>{t.monthlySavingNeeded}</span><strong>{amount(retirement.monthlySavingNeeded, currency)} {t.perMonth}</strong><small>{t.projectionNote}</small></div>}
-          <div className="card chart-card"><div className="chart-head"><div><h3>{t.projection}</h3><p>{t.currentAge} {retirement.currentAge} → {t.planToAge} {retirement.planToAge}</p></div><StatusPill tone="blue">{t.retirementAge}: {retirement.retirementAge}</StatusPill></div><ProjectionChart data={retirement.timeline} retirementAge={retirement.retirementAge} currency={currency}/><p className="chart-note">{t.projectionNote}</p></div>
+          {retirement.unfundedMajorWithdrawals > 0 && <div className="saving-callout"><span>{t.unfundedExpense}</span><strong>{amount(retirement.unfundedMajorWithdrawals, currency)}</strong></div>}
+          {baselineRetirement && <div className="card withdrawal-impact"><h3>{t.withdrawalImpact}</h3><div><span>{t.beforeWithdrawal}<strong>{amount(baselineRetirement.maximumMonthlySpending, currency)} {t.perMonth}</strong><small>{t.lastsUntil}: {t.age} {baselineRetirement.lastsUntil}</small></span><span>{t.afterWithdrawal}<strong>{amount(retirement.maximumMonthlySpending, currency)} {t.perMonth}</strong><small>{t.lastsUntil}: {t.age} {retirement.lastsUntil}</small></span></div></div>}
+          <div className="card chart-card"><div className="chart-head"><div><h3>{t.projection}</h3><p>{t.currentAge} {retirement.currentAge} → {t.planToAge} {retirement.planToAge}</p></div><StatusPill tone="blue">{t.retirementAge}: {retirement.retirementAge}</StatusPill></div><ProjectionChart data={retirement.timeline} retirementAge={retirement.retirementAge} currency={currency} withdrawals={majorWithdrawals}/>{majorWithdrawals.length > 0 && <div className="chart-events">{majorWithdrawals.map((withdrawal) => <span key={withdrawal.id}>{t.age} {withdrawal.age}: {t.withdrawalReasons[Number(withdrawal.reason) || 0]} −{amount(withdrawal.amount, currency)}</span>)}</div>}<p className="chart-note">{t.projectionNote}</p></div>
         </div>
       </div>
       <PageActions t={t} onNavigate={navigate} back="debts" next="scenarios"/>
@@ -690,9 +791,8 @@ export default function App() {
             <Stat label={t.debtEquity} value={balance.debtEquity === null ? "—" : `${balance.debtEquity.toFixed(2)}×`} note={debtEquityComment} tone={balance.debtEquity !== null && balance.debtEquity <= 0.5 ? "teal" : balance.debtEquity !== null && balance.debtEquity <= 1 ? "gold" : "red"}/>
             <Stat label={t.runway} value={`${balance.runway.toFixed(1)}`} note={`${t.months} · ${runwayComment}`} tone={balance.runway >= 12 ? "teal" : balance.runway >= 6 ? "gold" : "red"}/>
           </div>
-          <div className={`report-retirement-shell ${isFree ? "is-free" : ""}`}>
+          <div className="report-retirement-shell">
             <div className="report-retirement"><span>{t.retirementTitle}</span><strong>{retirement.onTrack ? t.onTrack : t.needsWork}</strong><b>{t.projectedFund}: {amount(retirement.projectedFund, currency, true)}</b></div>
-            {isFree && <button type="button" className="report-upgrade-overlay" onClick={() => setUpgradeOpen(true)}><Icon name="lock"/><strong>{t.paidEdition}</strong><span>{t.upgradeMessage}</span></button>}
           </div>
           <section className="quarterly-progress">
             <div className="quarterly-progress-head">

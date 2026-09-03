@@ -7,7 +7,7 @@ function canvasBlob(canvas, type, quality) {
   });
 }
 
-function buildImagePdf(jpegBytes, width, height) {
+function buildImagePdf(images) {
   const encoder = new TextEncoder();
   const parts = [];
   const offsets = [0];
@@ -26,20 +26,32 @@ function buildImagePdf(jpegBytes, width, height) {
   offsets[1] = length;
   pushText("1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n");
   offsets[2] = length;
-  pushText("2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n");
-  offsets[3] = length;
-  pushText("3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595.28 841.89] /Resources << /XObject << /Im0 4 0 R >> >> /Contents 5 0 R >>\nendobj\n");
-  offsets[4] = length;
-  pushText(`4 0 obj\n<< /Type /XObject /Subtype /Image /Width ${width} /Height ${height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpegBytes.length} >>\nstream\n`);
-  pushBytes(jpegBytes);
-  pushText("\nendstream\nendobj\n");
-  offsets[5] = length;
-  const content = "q\n595.28 0 0 841.89 0 0 cm\n/Im0 Do\nQ\n";
-  pushText(`5 0 obj\n<< /Length ${encoder.encode(content).length} >>\nstream\n${content}endstream\nendobj\n`);
+  const pageRefs = images.map((_, index) => `${3 + index * 3} 0 R`).join(" ");
+  pushText(`2 0 obj\n<< /Type /Pages /Kids [${pageRefs}] /Count ${images.length} >>\nendobj\n`);
+
+  images.forEach((image, index) => {
+    const pageObject = 3 + index * 3;
+    const imageObject = pageObject + 1;
+    const contentObject = pageObject + 2;
+    const landscape = image.width > image.height;
+    const pageWidth = landscape ? 841.89 : 595.28;
+    const pageHeight = landscape ? 595.28 : 841.89;
+    offsets[pageObject] = length;
+    pushText(`${pageObject} 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageWidth} ${pageHeight}] /Resources << /XObject << /Im${index} ${imageObject} 0 R >> >> /Contents ${contentObject} 0 R >>\nendobj\n`);
+    offsets[imageObject] = length;
+    pushText(`${imageObject} 0 obj\n<< /Type /XObject /Subtype /Image /Width ${image.width} /Height ${image.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${image.bytes.length} >>\nstream\n`);
+    pushBytes(image.bytes);
+    pushText("\nendstream\nendobj\n");
+    offsets[contentObject] = length;
+    const content = `q\n${pageWidth} 0 0 ${pageHeight} 0 0 cm\n/Im${index} Do\nQ\n`;
+    pushText(`${contentObject} 0 obj\n<< /Length ${encoder.encode(content).length} >>\nstream\n${content}endstream\nendobj\n`);
+  });
+
+  const objectCount = 2 + images.length * 3;
   const startXref = length;
-  pushText("xref\n0 6\n0000000000 65535 f \n");
-  for (let index = 1; index <= 5; index += 1) pushText(`${String(offsets[index]).padStart(10, "0")} 00000 n \n`);
-  pushText(`trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${startXref}\n%%EOF`);
+  pushText(`xref\n0 ${objectCount + 1}\n0000000000 65535 f \n`);
+  for (let index = 1; index <= objectCount; index += 1) pushText(`${String(offsets[index]).padStart(10, "0")} 00000 n \n`);
+  pushText(`trailer\n<< /Size ${objectCount + 1} /Root 1 0 R >>\nstartxref\n${startXref}\n%%EOF`);
   return new Blob(parts, { type: "application/pdf" });
 }
 
@@ -76,6 +88,149 @@ export function blobToBase64(blob) {
     reader.onerror = reject;
     reader.readAsDataURL(blob);
   });
+}
+
+function createYearlySummaryCanvases({ retirement, currency, language, t, isFree, colors }) {
+  const width = 1754;
+  const height = 1240;
+  const rows = isFree ? retirement.yearlySummary.slice(0, 5) : retirement.yearlySummary;
+  const rowsPerPage = 12;
+  const pages = [];
+  const chunks = [];
+  for (let index = 0; index < rows.length; index += rowsPerPage) chunks.push(rows.slice(index, index + rowsPerPage));
+  if (!chunks.length) chunks.push([]);
+
+  const columns = [
+    [t.age, 52, "left"],
+    [t.openingBalance, 130, "right"],
+    [t.monthlySpending, 130, "right"],
+    [t.yearlySpending, 130, "right"],
+    [t.inflation, 80, "right"],
+    [t.cashReturn, 110, "right"],
+    [t.investmentReturn, 145, "right"],
+    [t.retirementReturn, 125, "right"],
+    [t.otherMonthlyIncome, 135, "right"],
+    [t.otherYearlyIncome, 135, "right"],
+    [t.totalReturn, 115, "right"],
+    [t.majorWithdrawals, 130, "right"],
+    [t.endingBalance, 141, "right"],
+  ];
+  const tableX = 46;
+  const headerY = 332;
+  const headerH = 82;
+  const rowH = 61;
+  const locale = language === "ms" ? "ms-MY" : language === "zh" ? "zh-CN" : "en-MY";
+
+  chunks.forEach((chunk, pageIndex) => {
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext("2d");
+    context.fillStyle = colors.paper;
+    context.fillRect(0, 0, width, height);
+    context.fillStyle = colors.gold;
+    context.fillRect(0, 0, 16, height);
+    context.fillStyle = colors.navy;
+    context.fillRect(0, 0, width, 150);
+    context.fillStyle = "#ffffff";
+    context.font = '900 42px system-ui, "Noto Sans", sans-serif';
+    context.fillText(t.retirementYearlySummary, 54, 66);
+    context.fillStyle = "#b9c9e8";
+    context.font = '700 22px system-ui, "Noto Sans", sans-serif';
+    const editionNote = isFree ? t.freeYearlyLimit : t.paidYearlyLimit;
+    context.fillText(`${editionNote}  ·  ${t.asAt} ${new Date().toLocaleDateString(language === "en" ? "en-GB" : locale)}`, 54, 110);
+    context.textAlign = "right";
+    context.fillStyle = "#ffffff";
+    context.font = '850 21px system-ui, "Noto Sans", sans-serif';
+    context.fillText(`${pageIndex + 2}`, width - 54, 83);
+    context.textAlign = "left";
+
+    const cards = [
+      [t.projectedFund, retirement.projectedFund, colors.blue],
+      [t.maximumMonthlySpending, retirement.maximumMonthlySpending, colors.teal],
+      [t.majorWithdrawals, retirement.totalMajorWithdrawals, retirement.totalMajorWithdrawals > 0 ? colors.red : colors.navy],
+    ];
+    cards.forEach(([label, value, color], index) => {
+      const x = 54 + index * 554;
+      context.fillStyle = "#ffffff";
+      context.fillRect(x, 178, 522, 118);
+      context.fillStyle = colors.muted;
+      context.font = '850 17px system-ui, "Noto Sans", sans-serif';
+      context.fillText(String(label).toUpperCase(), x + 20, 213);
+      context.fillStyle = color;
+      context.font = '900 32px system-ui, "Noto Sans", sans-serif';
+      context.fillText(amount(value, currency), x + 20, 263);
+    });
+
+    if (retirement.scheduledMajorWithdrawals.length) {
+      const schedule = retirement.scheduledMajorWithdrawals
+        .map((item) => `${t.age} ${item.age}: ${t.withdrawalReasons[Number(item.reason) || 0]} −${amount(item.amount, currency, true)}`)
+        .join("   ·   ");
+      context.fillStyle = colors.muted;
+      context.font = '750 15px system-ui, "Noto Sans", sans-serif';
+      context.fillText(schedule, 54, 320, 1640);
+    }
+
+    context.fillStyle = colors.navy;
+    context.fillRect(tableX, headerY, columns.reduce((sum, column) => sum + column[1], 0), headerH);
+    let x = tableX;
+    columns.forEach(([label, columnWidth, align]) => {
+      context.fillStyle = "#ffffff";
+      context.font = '800 15px system-ui, "Noto Sans", sans-serif';
+      context.textAlign = align;
+      const textX = align === "right" ? x + columnWidth - 10 : x + 10;
+      wrapText(context, String(label).toUpperCase(), textX, headerY + 31, columnWidth - 20, 19, 2);
+      x += columnWidth;
+    });
+
+    chunk.forEach((row, rowIndex) => {
+      const y = headerY + headerH + rowIndex * rowH;
+      context.fillStyle = rowIndex % 2 ? "#eef3fa" : "#ffffff";
+      context.fillRect(tableX, y, columns.reduce((sum, column) => sum + column[1], 0), rowH);
+      const values = [
+        row.age,
+        amount(row.openingBalance, currency, true),
+        amount(row.monthlySpending, currency, true),
+        amount(row.annualSpending, currency, true),
+        `${row.inflationRate.toFixed(2)}%`,
+        amount(row.cashReturn, currency, true),
+        amount(row.investmentReturn, currency, true),
+        amount(row.retirementReturn, currency, true),
+        amount(row.monthlyIncome, currency, true),
+        amount(row.annualIncome, currency, true),
+        amount(row.totalReturn, currency, true),
+        amount(row.majorWithdrawals, currency, true),
+        amount(row.endingBalance, currency, true),
+      ];
+      let cellX = tableX;
+      values.forEach((value, columnIndex) => {
+        const [, columnWidth, align] = columns[columnIndex];
+        context.fillStyle = columnIndex === 0 || columnIndex === values.length - 1 ? colors.navy : colors.muted;
+        context.font = columnIndex === 0 || columnIndex === values.length - 1
+          ? '850 17px system-ui, "Noto Sans", sans-serif'
+          : '700 16px system-ui, "Noto Sans", sans-serif';
+        context.textAlign = align;
+        context.fillText(String(value), align === "right" ? cellX + columnWidth - 10 : cellX + 10, y + 38);
+        cellX += columnWidth;
+      });
+    });
+
+    context.textAlign = "left";
+    if (isFree) {
+      const bannerY = headerY + headerH + chunk.length * rowH + 34;
+      context.fillStyle = colors.navy;
+      context.fillRect(46, bannerY, 1658, 92);
+      context.fillStyle = "#ffffff";
+      context.font = '900 23px system-ui, "Noto Sans", sans-serif';
+      context.fillText(t.paidEdition, 72, bannerY + 37);
+      context.fillStyle = "#b9c9e8";
+      context.font = '700 18px system-ui, "Noto Sans", sans-serif';
+      context.fillText(t.freeYearlyLimit, 72, bannerY + 68);
+    }
+    pages.push(canvas);
+  });
+
+  return pages;
 }
 
 export async function createReportPdf({ profile = {}, calculatedAge = null, values, balance, retirement, retirementInput, currency, language, t, edition = "paid", quarterlyHistory = [] }) {
@@ -331,23 +486,7 @@ export async function createReportPdf({ profile = {}, calculatedAge = null, valu
     context.textAlign = "left";
   };
 
-  if (isFree) {
-    context.save();
-    context.filter = "blur(8px)";
-    drawRetirement();
-    context.restore();
-    context.fillStyle = "rgba(11,31,58,.60)";
-    context.fillRect(64, retirementY, 1112, retirementH);
-    context.fillStyle = "#ffffff";
-    context.textAlign = "center";
-    context.font = '900 24px system-ui, "Noto Sans", sans-serif';
-    context.fillText(t.paidEdition, 620, retirementY + 42);
-    context.font = '700 15px system-ui, "Noto Sans", sans-serif';
-    wrapText(context, t.upgradeMessage, 620, retirementY + 70, 760, 19, 2);
-    context.textAlign = "left";
-  } else {
-    drawRetirement();
-  }
+  drawRetirement();
 
   // Quarterly progress sits directly below retirement / upgrade.
   progressY = retirementY + retirementH + 10;
@@ -386,9 +525,25 @@ export async function createReportPdf({ profile = {}, calculatedAge = null, valu
     });
   }
 
-  const jpegBlob = await canvasBlob(canvas, "image/jpeg", 0.94);
-  const jpegBytes = new Uint8Array(await jpegBlob.arrayBuffer());
-  const pdf = buildImagePdf(jpegBytes, width, height);
+  const summaryCanvases = createYearlySummaryCanvases({
+    retirement,
+    currency,
+    language,
+    t,
+    isFree,
+    colors: { navy, blue, teal, gold, paper, muted, red },
+  });
+  const pageCanvases = [canvas, ...summaryCanvases];
+  const images = [];
+  for (const pageCanvas of pageCanvases) {
+    const jpegBlob = await canvasBlob(pageCanvas, "image/jpeg", 0.92);
+    images.push({
+      bytes: new Uint8Array(await jpegBlob.arrayBuffer()),
+      width: pageCanvas.width,
+      height: pageCanvas.height,
+    });
+  }
+  const pdf = buildImagePdf(images);
   const suffix = isFree ? "free" : "paid";
   return { pdf, filename: `balance-sheet-square-${suffix}-${new Date().toISOString().slice(0, 10)}.pdf` };
 }

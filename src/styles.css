@@ -263,6 +263,30 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .free-assumption-note .icon { width: 16px; height: 16px; }
 .field-control input[readonly] { color: #53647a; cursor: pointer; }
 .inline-link { margin: -2px 0 8px auto; padding: 8px 11px; color: var(--blue); background: var(--blue-light); border: 0; border-radius: 9px; font-size: 13px; font-weight: 780; cursor: pointer; }
+.major-withdrawals-card { margin-top: 10px; padding: 18px; border: 1px solid #ead78f; border-radius: 16px; background: #fffaf0; }
+.major-withdrawals-head { display: grid; grid-template-columns: auto 1fr; gap: 12px; align-items: center; }
+.major-withdrawals-head .big-icon { width: 42px; height: 42px; border-radius: 12px; }
+.major-withdrawals-head h3 { margin: 0; color: var(--navy); font-size: 18px; }
+.major-withdrawals-head p { margin: 3px 0 0; color: var(--muted); font-size: 13px; line-height: 1.4; }
+.withdrawal-empty { margin: 15px 0; color: var(--muted); font-size: 14px; }
+.withdrawal-list { margin: 14px 0; display: grid; gap: 8px; }
+.withdrawal-item { padding: 11px 12px; display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; background: white; border: 1px solid #eddfac; border-radius: 11px; }
+.withdrawal-item strong, .withdrawal-item span { display: block; }
+.withdrawal-item strong { color: var(--navy); font-size: 14px; }
+.withdrawal-item span { margin-top: 3px; color: var(--muted); font-size: 11px; line-height: 1.35; }
+.withdrawal-item > div:last-child { display: flex; gap: 5px; }
+.withdrawal-item button { padding: 6px 7px; color: var(--blue); background: var(--blue-light); border: 0; border-radius: 7px; font-size: 11px; font-weight: 800; cursor: pointer; }
+.withdrawal-item button:last-child { color: #9b3737; background: var(--red-light); }
+.withdrawal-editor { margin-top: 14px; padding-top: 12px; display: grid; gap: 10px; border-top: 1px solid #ead78f; }
+.withdrawal-editor .field { min-height: 62px; background: white; border-radius: 10px; }
+.withdrawal-reason { display: grid; grid-template-columns: 1fr minmax(160px, 52%); gap: 10px; align-items: center; color: #41536c; font-size: 14px; font-weight: 750; }
+.withdrawal-reason select { min-height: 46px; width: 100%; padding: 9px 10px; color: var(--navy); background: white; border: 1px solid #dce4ef; border-radius: 10px; font-size: 14px; font-weight: 720; }
+.withdrawal-editor > p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.withdrawal-editor > p strong { color: #6a5200; }
+.withdrawal-editor-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.withdrawal-editor-actions .button { min-height: 44px; padding: 10px; }
+.withdrawal-add { margin-top: 4px; }
+.withdrawal-limit { display: block; margin-top: 9px; color: #7a6418; font-size: 11px; line-height: 1.4; }
 .retirement-results { display: grid; gap: 17px; }
 .plan-banner { min-height: 96px; padding: 20px 24px; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 16px; color: white; border-radius: 20px; box-shadow: 0 15px 34px rgba(24,49,84,.13); }
 .plan-banner.on-track { background: linear-gradient(120deg, #0d8075, #14a99a); }
@@ -288,9 +312,19 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .chart-line { fill: none; stroke: var(--teal); stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; }
 .retire-line { stroke: var(--gold); stroke-width: 3; stroke-dasharray: 7 7; }
 .retire-dot { fill: var(--gold); stroke: white; stroke-width: 4; }
+.withdrawal-line { stroke: #e07a24; stroke-width: 3; stroke-dasharray: 4 5; }
+.withdrawal-dot { fill: #e07a24; stroke: white; stroke-width: 4; }
 .chart-legend { margin-top: -4px; display: flex; justify-content: space-between; color: var(--muted); font-size: 13px; }
 .chart-legend strong { color: var(--navy); }
 .chart-note { margin: 14px 0 0; color: var(--muted); font-size: 13px; }
+.chart-events { margin-top: 12px; padding: 10px 12px; display: grid; gap: 4px; color: #9a5218; background: #fff5e8; border-radius: 10px; font-size: 12px; font-weight: 750; }
+.withdrawal-impact { padding: 22px; }
+.withdrawal-impact h3 { margin: 0 0 13px; color: var(--navy); font-size: 20px; }
+.withdrawal-impact > div { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.withdrawal-impact span { padding: 14px; display: flex; flex-direction: column; color: var(--muted); background: #f4f7fb; border-radius: 12px; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; }
+.withdrawal-impact span:last-child { background: #fff5e8; }
+.withdrawal-impact strong { margin-top: 7px; color: var(--navy); font-size: 20px; text-transform: none; letter-spacing: 0; }
+.withdrawal-impact small { margin-top: 4px; color: var(--muted); font-size: 12px; text-transform: none; letter-spacing: 0; }
 
 .scenario-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
 .scenario-card { min-width: 0; padding: 24px; display: flex; flex-direction: column; background: white; border: 1px solid var(--line); border-radius: 20px; box-shadow: 0 9px 30px rgba(24,49,84,.055); }
@@ -498,6 +532,9 @@ button, a { -webkit-tap-highlight-color: transparent; }
   .plan-banner strong { font-size: 22px; }
   .saving-callout { grid-template-columns: 1fr; }
   .saving-callout strong, .saving-callout small { grid-column: 1; }
+  .withdrawal-item { grid-template-columns: 1fr; }
+  .withdrawal-item > div:last-child { justify-content: flex-start; }
+  .withdrawal-impact > div { grid-template-columns: 1fr; }
   .scenario-grid { grid-template-columns: 1fr; }
   .scenario-card { padding: 20px; }
   .scenario-card.selected { padding: 19px; }
@@ -528,6 +565,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
   .currency-control select { font-size: 12px; }
   .field { grid-template-columns: 1fr; gap: 6px; padding-block: 12px; }
   .field-control { width: 100%; }
+  .withdrawal-reason { grid-template-columns: 1fr; }
   .stats-four, .retirement-stats, .report-summary { grid-template-columns: 1fr; }
   .square-metrics { grid-template-columns: repeat(3, minmax(0,1fr)); }
   .mobile-nav button { font-size: 10px; }

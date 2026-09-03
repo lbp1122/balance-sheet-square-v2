@@ -7,7 +7,9 @@ A separate redesigned edition of Balance Sheet Square. The original `lbp1122/bal
 - Seven focused views with larger mobile typography
 - Proportional balance-sheet square and key ratios
 - Editable assets, liabilities and monthly spending
-- Retirement projection with inflation, returns, contributions and other income
+- Monthly retirement projection through age 120 with maximum sustainable spending
+- Major-withdrawal stress testing with automatic lowest-return-first funding
+- Five-year Free retirement report and full yearly summary in the Paid report
 - Local-only saving, offline support, PDF export and native sharing
 - English, Bahasa Malaysia and Chinese
 - Website and Android app from one source

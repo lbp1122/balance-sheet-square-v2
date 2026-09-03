@@ -1,4 +1,4 @@
-const CACHE = "bss-v2-c3fed416981a";
+const CACHE = "bss-v2-eda060fc64cf";
 const ASSETS = [
   "./",
   "./.nojekyll",
@@ -6,8 +6,8 @@ const ASSETS = [
   "./app-icon-192.png",
   "./app-icon-512.png",
   "./apple-touch-icon.png",
-  "./assets/index-BTAix7ZQ.js",
-  "./assets/index-hT5XV8n4.css",
+  "./assets/index-0kcNVUqk.js",
+  "./assets/index-BnXLD6gr.css",
   "./index.html",
   "./manifest.webmanifest",
   "./privacy.html"
