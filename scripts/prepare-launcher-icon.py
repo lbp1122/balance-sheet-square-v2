@@ -1,12 +1,31 @@
 from pathlib import Path
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFile
+
+ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE = ROOT / "public" / "app-icon-1024.png"
 PUBLIC = ROOT / "public"
 ANDROID = ROOT / "android-app" / "app" / "src" / "main" / "res" / "drawable-nodpi"
+CANDIDATES = [
+    PUBLIC / "app-icon-512.png",
+    ANDROID / "app_icon_v2.png",
+    PUBLIC / "app-icon-1024.png",
+]
 
-image = Image.open(SOURCE).convert("RGBA")
+image = None
+SOURCE = None
+for candidate in CANDIDATES:
+    try:
+        test = Image.open(candidate)
+        test.load()
+        image = test.convert("RGBA")
+        SOURCE = candidate
+        break
+    except Exception:
+        continue
+
+if image is None or SOURCE is None:
+    raise RuntimeError("Could not open any My Wealth Square source icon")
 
 # Remove only the neutral background connected to the outer edges.
 # Internal white chart symbols are enclosed by coloured panels, so they remain untouched.
