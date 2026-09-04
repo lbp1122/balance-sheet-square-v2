@@ -4,10 +4,10 @@
         <color android:color="#F6F3F0" />
     </item>
     <item
-        android:left="8dp"
-        android:top="8dp"
-        android:right="8dp"
-        android:bottom="8dp">
+        android:left="12dp"
+        android:top="12dp"
+        android:right="12dp"
+        android:bottom="12dp">
         <bitmap
             android:src="@drawable/app_icon_full"
             android:gravity="fill" />
