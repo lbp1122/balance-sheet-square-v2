@@ -245,11 +245,12 @@ function createBalanceSheetSquareCanvas({ profile = {}, calculatedAge = null, va
   context.fillStyle = colors.navy;
   context.fillRect(0, 0, width, 220);
 
-  context.fillStyle = "#ffffff";
-  context.font = '900 42px system-ui, "Noto Sans", sans-serif';
-  context.fillText(reportTitle, 54, 68);
   context.textAlign = "center";
-  context.font = '950 52px system-ui, "Noto Sans", sans-serif';
+  context.fillStyle = "#ffffff";
+  context.font = '950 48px system-ui, "Noto Sans", sans-serif';
+  context.fillText(reportTitle, width / 2, 86);
+  context.fillStyle = "#f6c344";
+  context.font = '850 26px system-ui, "Noto Sans", sans-serif';
   context.fillText(t.brand, width / 2, 132);
   context.textAlign = "left";
   context.fillStyle = "#b9c9e8";
@@ -358,9 +359,9 @@ function createBalanceSheetSquareCanvas({ profile = {}, calculatedAge = null, va
   context.fillRect(rightX,totalY,half-3,totalBarH);
   context.fillStyle=colors.navy;
   context.textAlign="center";
-  context.font='900 17px system-ui, "Noto Sans", sans-serif';
-  context.fillText(`${t.totalAssets} = ${amount(balance.assets,currency,true)}`,squareX+half/2,totalY+51);
-  context.fillText(`${t.totalFunding} = ${amount(balance.liabilities+balance.equity,currency,true)}`,rightX+(half-3)/2,totalY+51);
+  context.font='900 26px system-ui, "Noto Sans", sans-serif';
+  context.fillText(`${t.totalAssets} = ${amount(balance.assets,currency,true)}`,squareX+half/2,totalY+54);
+  context.fillText(`${t.totalFunding} = ${amount(balance.liabilities+balance.equity,currency,true)}`,rightX+(half-3)/2,totalY+54);
   context.textAlign="left";
 
   const detailsY=squareY+squareSize+32;
@@ -405,25 +406,25 @@ function createBalanceSheetSquareCanvas({ profile = {}, calculatedAge = null, va
   const progressY=ratioY+122;
   const progressRows=[...quarterlyHistory].sort((a,b)=>String(a.key).localeCompare(String(b.key))).slice(-3);
   context.fillStyle="#ffffff";
-  context.fillRect(54,progressY,1132,112);
+  context.fillRect(54,progressY,1132,128);
   context.fillStyle=colors.navy;
-  context.font='900 16px system-ui, "Noto Sans", sans-serif';
-  context.fillText(t.quarterlyProgress.toUpperCase(),78,progressY+28);
+  context.font='900 21px system-ui, "Noto Sans", sans-serif';
+  context.fillText(t.quarterlyProgress.toUpperCase(),78,progressY+30);
   if(progressRows.length){
     const xQuarter=78,xAssets=585,xLiabilities=845,xEquity=1160;
     context.fillStyle="#eef3f8";
-    context.fillRect(70,progressY+38,1100,24);
+    context.fillRect(70,progressY+40,1100,28);
     context.fillStyle=colors.muted;
-    context.font='850 11px system-ui, "Noto Sans", sans-serif';
-    context.fillText("QUARTER",xQuarter,progressY+55);
+    context.font='850 14px system-ui, "Noto Sans", sans-serif';
+    context.fillText("QUARTER",xQuarter,progressY+60);
     context.textAlign="right";
     context.fillText(String(t.totalAssets).toUpperCase(),xAssets,progressY+55);
     context.fillText(String(t.liabilities).toUpperCase(),xLiabilities,progressY+55);
     context.fillText(String(t.equity).toUpperCase(),xEquity,progressY+55);
     progressRows.forEach((item,index)=>{
-      const y=progressY+78+index*15;
+      const y=progressY+86+index*18;
       context.fillStyle=colors.navy;
-      context.font='800 11px system-ui, "Noto Sans", sans-serif';
+      context.font='800 14px system-ui, "Noto Sans", sans-serif';
       context.textAlign="left";
       context.fillText(String(item.key),xQuarter,y);
       context.textAlign="right";
@@ -434,8 +435,8 @@ function createBalanceSheetSquareCanvas({ profile = {}, calculatedAge = null, va
     context.textAlign="left";
   }else{
     context.fillStyle=colors.muted;
-    context.font='700 14px system-ui, "Noto Sans", sans-serif';
-    context.fillText(t.noSnapshots,78,progressY+65);
+    context.font='700 18px system-ui, "Noto Sans", sans-serif';
+    context.fillText(t.noSnapshots,78,progressY+72);
   }
   return canvas;
 }
@@ -568,11 +569,15 @@ function createYearlySummaryCanvases({ retirement, currency, language, t, isFree
       colors,
     });
 
-    const eventNet = safeNumber(retirement.totalMoneyAdded) - safeNumber(retirement.totalMoneyWithdrawn);
+    const hasEvents = Array.isArray(retirement.scheduledMoneyEvents) && retirement.scheduledMoneyEvents.length > 0;
     drawCards(context, [
       { label: t.projectedFund, value: retirement.projectedFund, always: true, color: colors.blue, format: (v) => amount(v,currency) },
-      { label: t.maximumMonthlySpending, value: retirement.maximumMonthlySpending, always: true, color: colors.teal, format: (v) => amount(v,currency) },
-      { label: t.oneTimeMoneyEvents, value: eventNet, color: eventNet >= 0 ? colors.teal : colors.red, format: (v) => signedAmount(v,currency,false) },
+      ...(hasEvents ? [
+        { label: t.withoutEventImpact, value: retirement.plannedMonthlySpending, always: true, color: colors.navy, format: (v) => amount(v,currency) },
+        { label: t.withEventImpact, value: retirement.maximumMonthlySpending, always: true, color: colors.teal, format: (v) => amount(v,currency) },
+      ] : [
+        { label: t.maximumMonthlySpending, value: retirement.maximumMonthlySpending, always: true, color: colors.teal, format: (v) => amount(v,currency) },
+      ]),
     ], colors, width, 202);
 
     const headerY = 332;
