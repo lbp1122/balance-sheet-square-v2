@@ -130,4 +130,61 @@ assert.equal(
   "post-retirement year-end fund balances should reconcile to total ending balance"
 );
 
+
+
+const inflationPlan = calculateRetirement(plan({
+  currentAge: 40,
+  retirementAge: 42,
+  retirementAccessAge: 40,
+  planToAge: 43,
+  cashSavings: 100000,
+  investmentSavings: 0,
+  retirementSavings: 0,
+  preRetirementIncome: 0,
+  preRetirementExpenses: 1200,
+  monthlyContribution: 0,
+  retirementContributionSource: "income",
+  cashReturn: 0,
+  investmentReturn: 0,
+  retirementReturn: 0,
+  inflation: 12,
+  monthlySpending: 0,
+  monthlyIncome: 0,
+  moneyEvents: [],
+  majorWithdrawals: [],
+}));
+const inflationRows = inflationPlan.preRetirementYearlySummary;
+assert.ok(inflationRows[0].annualExpenses > 14400, "pre-retirement expenses should inflate during the first year");
+assert.ok(inflationRows[1].monthlyExpenses > inflationRows[0].monthlyExpenses, "pre-retirement monthly expenses should continue inflating each year");
+const expectedInflatedExpenses = Array.from({ length: 24 }, (_, index) => 1200 * Math.pow(1.12, index / 12)).reduce((sum, value) => sum + value, 0);
+assert.ok(Math.abs(inflationPlan.projectedFund - (100000 - expectedInflatedExpenses)) < 0.5, "inflated pre-retirement expenses should reduce projected retirement funds");
+
+const consistencyInput = plan({
+  currentAge: 52,
+  retirementAge: 60,
+  retirementAccessAge: 55,
+  planToAge: 100,
+  cashSavings: 970000,
+  investmentSavings: 840000,
+  retirementSavings: 1080000,
+  preRetirementIncome: 0,
+  preRetirementExpenses: 8000,
+  monthlyContribution: 8333,
+  retirementContributionSource: "savings",
+  cashReturn: 3,
+  investmentReturn: 7,
+  retirementReturn: 5.5,
+  inflation: 2.5,
+  monthlySpending: 6000,
+  monthlyIncome: 0,
+  moneyEvents: [{ id: "medical-62", type: "withdraw", age: 62, month: 1, amount: 250000, reason: "2", destination: "cash" }],
+  majorWithdrawals: [],
+});
+const consistencyBase = calculateRetirement(consistencyInput);
+assert.ok(consistencyBase.preRetirementYearlySummary[7].monthlyExpenses > consistencyBase.preRetirementYearlySummary[0].monthlyExpenses, "expense inflation must feed the full pre-retirement projection");
+assert.ok(consistencyBase.maximumMonthlySpending > 0, "maximum sustainable spending should be calculable from the actual pre-retirement cash flow");
+const atMaximum = calculateRetirement({ ...consistencyInput, monthlySpending: consistencyBase.maximumMonthlySpending });
+assert.equal(atMaximum.onTrack, true, "maximum sustainable spending should survive through the selected final age");
+assert.equal(atMaximum.lastsUntil, 100, "maximum sustainable spending should last through age 100");
+
 console.log("Retirement calculation tests passed.");
