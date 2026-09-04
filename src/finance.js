@@ -124,14 +124,22 @@ function projectToRetirement(input, monthlySavingsOverride = null, monthlyContri
   const timeline = includeTimeline ? [{ age: currentAge, balance: totalPools(pools), phase: currentAge === retirementAge ? "retirement" : "saving" }] : [];
 
   const usesCashFlow = input.preRetirementIncome !== undefined || input.preRetirementExpenses !== undefined;
-  const monthlyIncome = usesCashFlow ? safeNumber(input.preRetirementIncome) : 0;
+  const startingMonthlyIncome = usesCashFlow ? safeNumber(input.preRetirementIncome) : 0;
+  const incomeGrowth = safeNumber(input.preRetirementIncomeGrowth) / 100;
   const startingMonthlyExpenses = usesCashFlow ? safeNumber(input.preRetirementExpenses) : 0;
   const inflation = safeNumber(input.inflation) / 100;
-  const requestedContribution = monthlyContributionOverride === null ? safeNumber(input.monthlyContribution) : safeNumber(monthlyContributionOverride);
+
   const source = ["income","external","savings"].includes(input.retirementContributionSource) ? input.retirementContributionSource : (usesCashFlow ? "income" : "external");
-  const incomeContribution = source === "income" ? Math.min(requestedContribution, monthlyIncome) : requestedContribution;
+  const legacyContribution = monthlyContributionOverride === null ? safeNumber(input.monthlyContribution) : safeNumber(monthlyContributionOverride);
+  const hasContributionBreakdown = ["retirementContributionFromIncome","retirementContributionFromEmployer","retirementContributionFromSavings"]
+    .some((key) => input[key] !== undefined);
+  const requestedIncomeContribution = hasContributionBreakdown ? safeNumber(input.retirementContributionFromIncome) : (source === "income" ? legacyContribution : 0);
+  const requestedEmployerContribution = hasContributionBreakdown ? safeNumber(input.retirementContributionFromEmployer) : (source === "external" ? legacyContribution : 0);
+  const requestedSavingsContribution = hasContributionBreakdown ? safeNumber(input.retirementContributionFromSavings) : (source === "savings" ? legacyContribution : 0);
+  const requestedContribution = requestedIncomeContribution + requestedEmployerContribution + requestedSavingsContribution;
+
   const naturalMonthlySavings = usesCashFlow
-    ? monthlyIncome - startingMonthlyExpenses - (source === "income" ? incomeContribution : 0)
+    ? startingMonthlyIncome - startingMonthlyExpenses - Math.min(requestedIncomeContribution, startingMonthlyIncome)
     : safeNumber(input.monthlySavings);
   const legacyMonthlySavings = usesCashFlow
     ? 0
@@ -144,7 +152,7 @@ function projectToRetirement(input, monthlySavingsOverride = null, monthlyContri
   for (let age=currentAge; age<retirementAge; age+=1) {
     const openingBalance=totalPools(pools), openingAccessible=accessibleTotal(pools,age>=retirementAccessAge);
     let annualReturn=0, annualSavings=0, annualContribution=0, annualAdded=0, annualWithdrawn=0, annualUnfundedCashFlow=0;
-    let annualIncome=0, annualExpenses=0;
+    let annualIncome=0, annualExpenses=0, annualContributionFromIncome=0, annualContributionFromEmployer=0, annualContributionFromSavings=0;
 
     for (let month=1; month<=12; month+=1) {
       const cg=pools.cash*monthlyRate(rates.cash), ig=pools.investments*monthlyRate(rates.investments), rg=pools.retirement*monthlyRate(rates.retirement);
@@ -153,27 +161,38 @@ function projectToRetirement(input, monthlySavingsOverride = null, monthlyContri
       const ev=applyMoneyEvents(pools,rates,events.filter((e)=>e.age===age&&e.month===month),age>=retirementAccessAge);
       moneyEventResults.push(...ev.results); unfundedMoneyWithdrawals+=ev.unfunded; annualAdded+=ev.added; annualWithdrawn+=ev.withdrawn;
 
-      let fundedContribution=requestedContribution;
-      if(usesCashFlow&&source==="income"){
-        fundedContribution=incomeContribution;
-        unfundedRetirementContribution+=Math.max(0,requestedContribution-fundedContribution);
-      } else if(usesCashFlow&&source==="savings"){
-        const sf=withdrawLowestReturnFirst(pools,rates,requestedContribution,false);
-        fundedContribution=requestedContribution-sf;
-        unfundedRetirementContribution+=sf;
-      }
-      pools.retirement+=fundedContribution;
-      annualContribution+=fundedContribution;
-
+      const currentMonthlyIncome = usesCashFlow
+        ? startingMonthlyIncome * Math.pow(1 + incomeGrowth, monthsFromStart / 12)
+        : 0;
       const currentMonthlyExpenses = usesCashFlow
         ? startingMonthlyExpenses * Math.pow(1 + inflation, monthsFromStart / 12)
         : 0;
+
+      const fundedIncomeContribution = usesCashFlow
+        ? Math.min(requestedIncomeContribution, currentMonthlyIncome)
+        : requestedIncomeContribution;
+      if (usesCashFlow) unfundedRetirementContribution += Math.max(0, requestedIncomeContribution - fundedIncomeContribution);
+
+      const savingsShortfall = requestedSavingsContribution > 0
+        ? withdrawLowestReturnFirst(pools, rates, requestedSavingsContribution, false)
+        : 0;
+      const fundedSavingsContribution = requestedSavingsContribution - savingsShortfall;
+      unfundedRetirementContribution += savingsShortfall;
+
+      const fundedEmployerContribution = requestedEmployerContribution;
+      const fundedContribution = fundedIncomeContribution + fundedEmployerContribution + fundedSavingsContribution;
+      pools.retirement += fundedContribution;
+      annualContribution += fundedContribution;
+      annualContributionFromIncome += fundedIncomeContribution;
+      annualContributionFromEmployer += fundedEmployerContribution;
+      annualContributionFromSavings += fundedSavingsContribution;
+
       const baseMonthlyCashFlow = usesCashFlow
-        ? monthlyIncome - currentMonthlyExpenses - (source === "income" ? fundedContribution : 0)
+        ? currentMonthlyIncome - currentMonthlyExpenses - fundedIncomeContribution
         : legacyMonthlySavings;
       const monthlyCashFlow = baseMonthlyCashFlow + extraMonthlySavings;
 
-      annualIncome += monthlyIncome;
+      annualIncome += currentMonthlyIncome;
       annualExpenses += currentMonthlyExpenses;
 
       if(monthlyCashFlow>=0){
@@ -194,6 +213,7 @@ function projectToRetirement(input, monthlySavingsOverride = null, monthlyContri
       monthlyExpenses:annualExpenses/12, annualExpenses,
       monthlySavings:annualSavings/12, annualSavings,
       monthlyRetirementContribution:annualContribution/12, annualRetirementContribution:annualContribution,
+      annualContributionFromIncome, annualContributionFromEmployer, annualContributionFromSavings,
       totalReturn:annualReturn, moneyAdded:annualAdded, moneyWithdrawn:annualWithdrawn, netMoneyEvents:annualAdded-annualWithdrawn,
       majorWithdrawals:annualWithdrawn, unfundedCashFlow:annualUnfundedCashFlow,
       cashBalance:Math.max(0,pools.cash), investmentBalance:Math.max(0,pools.investments), retirementBalance:Math.max(0,pools.retirement),
@@ -206,6 +226,7 @@ function projectToRetirement(input, monthlySavingsOverride = null, monthlyContri
     withdrawalResults:moneyEventResults.filter((e)=>e.type==="withdraw"),
     unfundedMoneyWithdrawals,unfundedMajorWithdrawals:unfundedMoneyWithdrawals,
     unfundedCashFlow,unfundedRetirementContribution,naturalMonthlySavings,
+    requestedContribution,
   };
 }
 
@@ -312,7 +333,6 @@ function simulateRetirement(input, initialPools, includeTimeline = false, stopAg
 
 export function calculateMaxMonthlySpending(input) {
   const projection = projectToRetirement(input, null, null, false);
-  if ((projection.unfundedMoneyWithdrawals > 0.01 || projection.unfundedCashFlow > 0.01)) return 0;
   const projectedPools = projection.pools;
   const survives = (monthlySpending) => {
     const result = simulateRetirement({ ...input, monthlySpending }, projectedPools, false);
@@ -433,6 +453,9 @@ export function calculateRetirement(input) {
   const usesCashFlowInputs = input.preRetirementIncome !== undefined || input.preRetirementExpenses !== undefined;
   const monthlySavingShortfall=usesCashFlowInputs ? monthlySavingNeeded : Math.max(0,monthlySavingNeeded-availableMonthlySavings);
   const maximumMonthlySpending=calculateMaxMonthlySpending(input),earliestRetirementAge=earliestFinancialIndependenceAge(input);
+  const retirementRanOut=retired.ranOut;
+  const retirementOnTrack=!retirementRanOut&&retired.unfundedMoneyWithdrawals<=0.01;
+  const preRetirementOnTrack=preRetirement.unfundedMoneyWithdrawals<=0.01&&preRetirement.unfundedCashFlow<=0.01&&preRetirement.unfundedRetirementContribution<=0.01;
   const targetProjection=projectToRetirement(input,monthlySavingNeeded,null,false);
   const targetByAge=new Map(targetProjection.yearlySummary.map((row)=>[row.age,row]));
   const preRetirementYearlySummary=preRetirement.yearlySummary.map((row)=>{const target=targetByAge.get(row.age);return {...row,targetBalance:target?.endingBalance??row.endingBalance,targetAccessibleBalance:target?.accessibleBalance??row.accessibleBalance,targetLockedBalance:target?.lockedBalance??row.lockedBalance,gap:row.endingBalance-(target?.endingBalance??row.endingBalance)};});
@@ -443,9 +466,12 @@ export function calculateRetirement(input) {
     currentAge,retirementAge,retirementAccessAge,planToAge,projectedFund,projectedPools,projectedAccessibleFund,projectedLockedFund,
     requiredFund:required.total,requiredAccessibleFund:required.accessible,requiredLockedFund:required.locked,gap:projectedFund-required.total,
     firstYearSpend:retired.firstYearSpend,lastsUntil:retired.lastsUntil,
-    onTrack:!retired.ranOut&&unfundedMoneyWithdrawals<=0.01&&preRetirement.unfundedCashFlow<=0.01&&preRetirement.unfundedRetirementContribution<=0.01,
+    retirementRanOut,retirementOnTrack,preRetirementOnTrack,
+    onTrack:retirementOnTrack&&preRetirementOnTrack,
     monthlySavingNeeded,monthlySavingShortfall,availableMonthlySavings,earliestRetirementAge,financiallyIndependentNow:earliestRetirementAge===currentAge,
-    maximumMonthlySpending,timeline,endBalance:retired.endBalance,preRetirementYearlySummary,yearlySummary:retired.yearlySummary,
+    plannedMonthlySpending:safeNumber(input.monthlySpending),maximumMonthlySpending,
+    eventImpactMonthly:maximumMonthlySpending-safeNumber(input.monthlySpending),
+    timeline,endBalance:retired.endBalance,preRetirementYearlySummary,yearlySummary:retired.yearlySummary,
     moneyEventResults:[...preRetirement.moneyEventResults,...retired.moneyEventResults],
     withdrawalResults:[...preRetirement.withdrawalResults,...retired.withdrawalResults],
     unfundedMoneyWithdrawals,unfundedMajorWithdrawals:unfundedMoneyWithdrawals,unfundedPreRetirementCashFlow:preRetirement.unfundedCashFlow,
