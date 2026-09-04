@@ -228,7 +228,7 @@ function drawDynamicTable(context, {
   context.textAlign = "left";
 }
 
-function createBalanceSheetSquareCanvas({ profile = {}, calculatedAge = null, values = {}, balance, currency, language, t, colors, reportTitle }) {
+function createBalanceSheetSquareCanvas({ profile = {}, calculatedAge = null, values = {}, balance, currency, language, t, colors, reportTitle, quarterlyHistory = [] }) {
   const width = 1240;
   const height = 1754;
   const canvas = document.createElement("canvas");
@@ -248,8 +248,10 @@ function createBalanceSheetSquareCanvas({ profile = {}, calculatedAge = null, va
   context.fillStyle = "#ffffff";
   context.font = '900 42px system-ui, "Noto Sans", sans-serif';
   context.fillText(reportTitle, 54, 68);
+  context.textAlign = "center";
   context.font = '950 52px system-ui, "Noto Sans", sans-serif';
-  context.fillText(t.brand, 54, 132);
+  context.fillText(t.brand, width / 2, 132);
+  context.textAlign = "left";
   context.fillStyle = "#b9c9e8";
   context.font = '700 19px system-ui, "Noto Sans", sans-serif';
   context.fillText(calculatedAge === null ? dateText : `${t.age}: ${calculatedAge}  ·  ${dateText}`, 54, 178);
@@ -325,7 +327,7 @@ function createBalanceSheetSquareCanvas({ profile = {}, calculatedAge = null, va
     context.textAlign="left";
   });
 
-  context.fillStyle="rgba(255,255,255,.94)";
+  context.fillStyle="#fff3f0";
   context.fillRect(rightX+20,squareY+20,half-46,100);
   context.fillStyle=colors.red;
   context.font='900 19px system-ui, "Noto Sans", sans-serif';
@@ -362,9 +364,9 @@ function createBalanceSheetSquareCanvas({ profile = {}, calculatedAge = null, va
   context.textAlign="left";
 
   const detailsY=squareY+squareSize+32;
-  context.fillStyle="#ffffff";
+  context.fillStyle="#fff3f0";
   context.fillRect(54,detailsY,1132,176);
-  context.fillStyle=colors.navy;
+  context.fillStyle=colors.red;
   context.font='900 17px system-ui, "Noto Sans", sans-serif';
   context.fillText(t.liabilitiesDetails.toUpperCase(),78,detailsY+34);
   debtKeys.forEach((key,index)=>{
@@ -372,7 +374,7 @@ function createBalanceSheetSquareCanvas({ profile = {}, calculatedAge = null, va
     const row=Math.floor(index/2);
     const x=78+col*540;
     const y=detailsY+78+row*48;
-    context.fillStyle=colors.muted;
+    context.fillStyle="#86524d";
     context.font='700 16px system-ui, "Noto Sans", sans-serif';
     context.fillText(t[key],x,y);
     context.fillStyle=colors.navy;
@@ -399,6 +401,42 @@ function createBalanceSheetSquareCanvas({ profile = {}, calculatedAge = null, va
     context.font='900 28px system-ui, "Noto Sans", sans-serif';
     context.fillText(String(value),x+18,ratioY+72);
   });
+
+  const progressY=ratioY+122;
+  const progressRows=[...quarterlyHistory].sort((a,b)=>String(a.key).localeCompare(String(b.key))).slice(-3);
+  context.fillStyle="#ffffff";
+  context.fillRect(54,progressY,1132,112);
+  context.fillStyle=colors.navy;
+  context.font='900 16px system-ui, "Noto Sans", sans-serif';
+  context.fillText(t.quarterlyProgress.toUpperCase(),78,progressY+28);
+  if(progressRows.length){
+    const xQuarter=78,xAssets=585,xLiabilities=845,xEquity=1160;
+    context.fillStyle="#eef3f8";
+    context.fillRect(70,progressY+38,1100,24);
+    context.fillStyle=colors.muted;
+    context.font='850 11px system-ui, "Noto Sans", sans-serif';
+    context.fillText("QUARTER",xQuarter,progressY+55);
+    context.textAlign="right";
+    context.fillText(String(t.totalAssets).toUpperCase(),xAssets,progressY+55);
+    context.fillText(String(t.liabilities).toUpperCase(),xLiabilities,progressY+55);
+    context.fillText(String(t.equity).toUpperCase(),xEquity,progressY+55);
+    progressRows.forEach((item,index)=>{
+      const y=progressY+78+index*15;
+      context.fillStyle=colors.navy;
+      context.font='800 11px system-ui, "Noto Sans", sans-serif';
+      context.textAlign="left";
+      context.fillText(String(item.key),xQuarter,y);
+      context.textAlign="right";
+      context.fillText(amount(item.assets,currency,true),xAssets,y);
+      context.fillText(amount(item.liabilities,currency,true),xLiabilities,y);
+      context.fillText(amount(item.equity,currency,true),xEquity,y);
+    });
+    context.textAlign="left";
+  }else{
+    context.fillStyle=colors.muted;
+    context.font='700 14px system-ui, "Noto Sans", sans-serif';
+    context.fillText(t.noSnapshots,78,progressY+65);
+  }
   return canvas;
 }
 
@@ -494,8 +532,8 @@ function createYearlySummaryCanvases({ retirement, currency, language, t, isFree
   const definitions = [
     { label: t.age, align: "left", always: true, present: () => true, value: (row) => row.age, strong: true },
     { label: t.openingBalance, always: true, present: (row) => nonZero(row.openingBalance), value: (row,c) => blankAmount(row.openingBalance,c) },
-    { label: t.monthlySavingsSpending, always: true, present: () => true, value: (row,c) => signedAmount(safeNumber(row.monthlyIncome)-safeNumber(row.monthlySpending),c) },
-    { label: t.yearlySavingsSpending, always: true, present: () => true, value: (row,c) => signedAmount(safeNumber(row.annualIncome)-safeNumber(row.annualSpending),c) },
+    { label: t.monthlySpendingAtAge, always: true, present: () => true, value: (row,c) => row.terminal ? "" : blankAmount(row.monthlySpending,c) },
+    { label: t.yearlySpendingAtAge, always: true, present: () => true, value: (row,c) => row.terminal ? "" : blankAmount(row.annualSpending,c) },
     { label: t.inflation, present: (row) => nonZero(row.inflationRate), value: (row) => nonZero(row.inflationRate) ? `${safeNumber(row.inflationRate).toFixed(2)}%` : "" },
     { label: t.cashReturn, present: (row) => nonZero(row.cashReturn), value: (row,c) => blankAmount(row.cashReturn,c) },
     { label: t.investmentReturn, present: (row) => nonZero(row.investmentReturn), value: (row,c) => blankAmount(row.investmentReturn,c) },
@@ -524,7 +562,7 @@ function createYearlySummaryCanvases({ retirement, currency, language, t, isFree
       width,
       title: reportTitle,
       section: t.postRetirement,
-      hint: t.paidYearlyLimit,
+      hint: t.postSpendingHint,
       pageNumber: startPage + pageIndex,
       dateText,
       colors,
@@ -571,8 +609,11 @@ export async function createReportPdf({ profile = {}, calculatedAge = null, valu
     muted: "#65748b",
     red: "#c34242",
   };
-  const reportTitle = profile.name
-    ? `${profile.name}: ${t.retirementSimulatorReport}`
+  const wealthReportTitle = profile.name
+    ? `${profile.name} : ${t.wealthTitle}`
+    : t.wealthTitle;
+  const retirementReportTitle = profile.name
+    ? `${profile.name} : ${t.retirementSimulatorReport}`
     : t.retirementSimulatorReport;
 
   const balancePages = balance ? [createBalanceSheetSquareCanvas({
@@ -584,7 +625,8 @@ export async function createReportPdf({ profile = {}, calculatedAge = null, valu
     language,
     t,
     colors,
-    reportTitle,
+    reportTitle: wealthReportTitle,
+    quarterlyHistory,
   })] : [];
   const firstRetirementPage = 1 + balancePages.length;
   const prePages = createPreRetirementSummaryCanvases({
@@ -594,7 +636,7 @@ export async function createReportPdf({ profile = {}, calculatedAge = null, valu
     t,
     isFree,
     colors,
-    reportTitle,
+    reportTitle: retirementReportTitle,
     startPage: firstRetirementPage,
   });
   const postPages = createYearlySummaryCanvases({
@@ -604,7 +646,7 @@ export async function createReportPdf({ profile = {}, calculatedAge = null, valu
     t,
     isFree,
     colors,
-    reportTitle,
+    reportTitle: retirementReportTitle,
     startPage: firstRetirementPage + prePages.length,
   });
 
