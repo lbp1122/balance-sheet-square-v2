@@ -36,6 +36,11 @@ jobs:
           node-version: "22"
           cache: npm
 
+      - name: Prepare full-size launcher icon
+        run: |
+          python3 -m pip install --quiet pillow
+          python3 scripts/prepare-launcher-icon.py
+
       - name: Test retirement calculations
         run: npm run test:retirement
 
