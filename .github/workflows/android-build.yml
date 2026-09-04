@@ -36,10 +36,12 @@ jobs:
           node-version: "22"
           cache: npm
 
+      - name: Test retirement calculations
+        run: npm run test:retirement
+
       - name: Build and bundle the website
         run: |
           npm ci
-          npm run test:retirement
           npm run sync:android
 
       - name: Set up Android SDK
