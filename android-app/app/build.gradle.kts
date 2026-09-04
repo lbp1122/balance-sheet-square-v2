@@ -12,8 +12,8 @@ android {
         applicationId = "com.lbp.balancesheetsquare"
         minSdk = 24
         targetSdk = 36
-        versionCode = 23
-        versionName = "2.3.16"
+        versionCode = 24
+        versionName = "2.3.17"
         buildConfigField("boolean", "DIRECT_PAID", directPaid.toString())
         resValue("string", "app_name", "My Wealth Square")
     }
