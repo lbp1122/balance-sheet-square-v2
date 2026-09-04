@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="share_report">Share balance sheet report</string>
+    <string name="share_report">Share My Wealth Square report</string>
     <string name="pdf_saved">PDF saved</string>
     <string name="pdf_failed">Could not prepare the PDF</string>
     <string name="no_app_for_link">No app is available to open this link</string>
