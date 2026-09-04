@@ -98,7 +98,7 @@ assert.equal(lockedOnly.onTrack, false, "a large locked balance alone must not f
 assert.ok(lockedOnly.earliestRetirementAge >= 55);
 
 
-const cashFlow = calculateRetirement(plan({currentAge:40,retirementAge:41,retirementAccessAge:40,planToAge:42,cashSavings:0,investmentSavings:0,retirementSavings:0,preRetirementIncome:10000,preRetirementExpenses:5000,monthlyContribution:2400,retirementContributionSource:"income",cashReturn:0,investmentReturn:0,retirementReturn:0,inflation:0,monthlySpending:0,monthlyIncome:0,moneyEvents:[],majorWithdrawals:[]}));
+const cashFlow = calculateRetirement(plan({currentAge:40,retirementAge:41,retirementAccessAge:40,planToAge:42,cashSavings:0,investmentSavings:0,retirementSavings:0,preRetirementIncome:10000,preRetirementExpenses:5000,monthlyContribution:2400,retirementContributionSource:"income",surplusDestination:"investments",cashReturn:0,investmentReturn:0,retirementReturn:0,inflation:0,monthlySpending:0,monthlyIncome:0,moneyEvents:[],majorWithdrawals:[]}));
 assert.equal(cashFlow.projectedPools.investments,31200);
 assert.equal(cashFlow.projectedPools.retirement,28800);
 assert.equal(cashFlow.availableMonthlySavings,2600);
@@ -240,6 +240,7 @@ const contributionBreakdown = calculateRetirement(plan({
   preRetirementIncome: 10000, preRetirementIncomeGrowth: 0, preRetirementExpenses: 5000,
   monthlyContribution: 1000, retirementContributionSource: "income",
   retirementContributionFromIncome: 600, retirementContributionFromEmployer: 400, retirementContributionFromSavings: 0,
+  surplusDestination: "investments",
   cashReturn: 0, investmentReturn: 0, retirementReturn: 0, inflation: 0,
   monthlySpending: 0, monthlyIncome: 0, moneyEvents: [], majorWithdrawals: [],
 }));
@@ -333,7 +334,7 @@ assert.equal(Math.round(annualStepIncome.preRetirementYearlySummary[1].monthlyIn
 assert.equal(Math.round(annualStepIncome.preRetirementYearlySummary[0].annualContributionFromIncome), 12000);
 assert.equal(Math.round(annualStepIncome.preRetirementYearlySummary[1].annualContributionFromIncome), 13200);
 
-const voluntaryFromCashNotLowestReturn = calculateRetirement(plan({
+const voluntaryUsesLowestReturnSavings = calculateRetirement(plan({
   currentAge: 40, retirementAge: 41, retirementAccessAge: 40, planToAge: 42,
   cashSavings: 12000, investmentSavings: 12000, retirementSavings: 0,
   preRetirementIncome: 0, preRetirementIncomeGrowth: 0, preRetirementExpenses: 0,
@@ -341,9 +342,9 @@ const voluntaryFromCashNotLowestReturn = calculateRetirement(plan({
   cashReturn: 5, investmentReturn: 1, retirementReturn: 0, inflation: 0,
   monthlySpending: 0, monthlyIncome: 0, moneyEvents: [], majorWithdrawals: [],
 }));
-assert.ok(voluntaryFromCashNotLowestReturn.projectedPools.cash < 12000, "voluntary contribution should use cash & savings");
-assert.ok(voluntaryFromCashNotLowestReturn.projectedPools.investments > 12000, "voluntary contribution must not automatically consume the lower-return investment pool");
-assert.equal(Math.round(voluntaryFromCashNotLowestReturn.projectedPools.retirement), 6000, "user-entered MYR500 voluntary contribution should reach retirement each month");
+assert.ok(voluntaryUsesLowestReturnSavings.projectedPools.cash > 12000, "higher-return cash should remain untouched apart from its own return while a lower-return investment balance is available");
+assert.ok(voluntaryUsesLowestReturnSavings.projectedPools.investments < 12000, "voluntary contribution from existing wealth should use the lowest-return accessible cash/investment pool first");
+assert.equal(Math.round(voluntaryUsesLowestReturnSavings.projectedPools.retirement), 6000, "user-entered MYR500 voluntary contribution should reach retirement each month");
 
 const surplusDefaultsToCash = calculateRetirement(plan({
   currentAge: 40, retirementAge: 41, retirementAccessAge: 40, planToAge: 42,
