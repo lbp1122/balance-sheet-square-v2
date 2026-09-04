@@ -392,7 +392,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .report-balance-square { flex: 1; min-height: 0; margin: 0; width: 100%; display: grid; grid-template-columns: 1fr 1fr; overflow: hidden; border: 0; border-radius: 0; background: var(--navy); gap: 6px; }
 .report-balance-total-bar { width: 100%; display: grid; grid-template-columns: 1fr 1fr; background: var(--navy); border-top: 6px solid var(--navy); gap: 6px; }
 .report-balance-total-bar > div { min-height: 72px; padding: 14px 16px; display: flex; align-items: center; justify-content: center; text-align: center; background: #edf3fb; }
-.report-balance-total-bar strong { color: var(--navy); font-size: 24px; font-weight: 900; line-height: 1.2; }
+.report-balance-total-bar strong { color: var(--navy); font-size: 22px; font-weight: 900; line-height: 1.2; }
 
 .report-square-assets { padding: 24px; background: #dff8f3; }
 .report-square-funding { position: relative; min-height: 0; background: linear-gradient(to bottom, #ffe0dc 0, #ffe0dc var(--liability-pct), #0e6d68 var(--liability-pct), #0e6d68 100%); }

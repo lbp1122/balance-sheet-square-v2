@@ -359,7 +359,7 @@ function createBalanceSheetSquareCanvas({ profile = {}, calculatedAge = null, va
   context.fillRect(rightX,totalY,half-3,totalBarH);
   context.fillStyle=colors.navy;
   context.textAlign="center";
-  context.font='900 26px system-ui, "Noto Sans", sans-serif';
+  context.font='900 23px system-ui, "Noto Sans", sans-serif';
   context.fillText(`${t.totalAssets} = ${amount(balance.assets,currency,true)}`,squareX+half/2,totalY+54);
   context.fillText(`${t.totalFunding} = ${amount(balance.liabilities+balance.equity,currency,true)}`,rightX+(half-3)/2,totalY+54);
   context.textAlign="left";
@@ -485,7 +485,7 @@ function createPreRetirementSummaryCanvases({ retirement, currency, language, t,
       width,
       title: reportTitle,
       section: t.preRetirement,
-      hint: t.yearlyTargetsHint,
+      hint: t.yearlyTargetsHint + " " + t.preInvestmentBalanceHint,
       pageNumber: startPage + pageIndex,
       dateText,
       colors,

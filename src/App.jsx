@@ -369,18 +369,25 @@ export default function App() {
         if (saved.retirementInput.preRetirementIncome === undefined) migratedRetirement.preRetirementIncome = String(safeNumber(saved.retirementInput.monthlySavings) + safeNumber(savedValues.monthlyExpenses) + safeNumber(saved.retirementInput.monthlyContribution));
         if (saved.retirementInput.preRetirementIncomeGrowth === undefined) migratedRetirement.preRetirementIncomeGrowth = "0";
         if (saved.retirementInput.retirementContributionSource === undefined) migratedRetirement.retirementContributionSource = "income";
-        const hasContributionBreakdown = ["retirementContributionFromIncome","retirementContributionFromEmployer","retirementContributionFromSavings"].some((key) => saved.retirementInput[key] !== undefined);
-        if (!hasContributionBreakdown) {
+        const hasPercentageContribution = ["retirementContributionIncomePct","retirementContributionEmployerPct","voluntaryRetirementContribution"]
+          .some((key) => saved.retirementInput[key] !== undefined);
+        if (!hasPercentageContribution) {
+          const monthlyIncome = safeNumber(migratedRetirement.preRetirementIncome);
+          const hasLegacyBreakdown = ["retirementContributionFromIncome","retirementContributionFromEmployer","retirementContributionFromSavings"]
+            .some((key) => saved.retirementInput[key] !== undefined);
           const legacyContribution = safeNumber(saved.retirementInput.monthlyContribution);
           const legacySource = saved.retirementInput.retirementContributionSource || "income";
-          migratedRetirement.retirementContributionFromIncome = legacySource === "income" ? String(legacyContribution) : "0";
-          migratedRetirement.retirementContributionFromEmployer = legacySource === "external" ? String(legacyContribution) : "0";
-          migratedRetirement.retirementContributionFromSavings = legacySource === "savings" ? String(legacyContribution) : "0";
+          const incomeAmount = hasLegacyBreakdown ? safeNumber(saved.retirementInput.retirementContributionFromIncome) : (legacySource === "income" ? legacyContribution : 0);
+          const employerAmount = hasLegacyBreakdown ? safeNumber(saved.retirementInput.retirementContributionFromEmployer) : (legacySource === "external" ? legacyContribution : 0);
+          const voluntaryAmount = hasLegacyBreakdown ? safeNumber(saved.retirementInput.retirementContributionFromSavings) : (legacySource === "savings" ? legacyContribution : 0);
+          migratedRetirement.retirementContributionIncomePct = monthlyIncome > 0 ? String(incomeAmount / monthlyIncome * 100) : "0";
+          migratedRetirement.retirementContributionEmployerPct = monthlyIncome > 0 ? String(employerAmount / monthlyIncome * 100) : "0";
+          migratedRetirement.voluntaryRetirementContribution = String(voluntaryAmount);
         }
         migratedRetirement.monthlyContribution = String(
-          safeNumber(migratedRetirement.retirementContributionFromIncome) +
-          safeNumber(migratedRetirement.retirementContributionFromEmployer) +
-          safeNumber(migratedRetirement.retirementContributionFromSavings)
+          safeNumber(migratedRetirement.preRetirementIncome) *
+            (safeNumber(migratedRetirement.retirementContributionIncomePct) + safeNumber(migratedRetirement.retirementContributionEmployerPct)) / 100 +
+          safeNumber(migratedRetirement.voluntaryRetirementContribution)
         );
         if (saved.retirementInput.moneyEvents === undefined) migratedRetirement.moneyEvents = (Array.isArray(saved.retirementInput.majorWithdrawals) ? saved.retirementInput.majorWithdrawals : []).map((item) => ({ ...item, type: "withdraw", destination: "cash" }));
         setRetirementInput(migratedRetirement);
@@ -449,15 +456,12 @@ export default function App() {
     }
     setRetirementInput((current) => {
       const updated = { ...current, [key]: next };
-      if (["retirementContributionFromIncome","retirementContributionFromEmployer","retirementContributionFromSavings"].includes(key)) {
+      if (["retirementContributionIncomePct","retirementContributionEmployerPct","voluntaryRetirementContribution","preRetirementIncome"].includes(key)) {
         updated.monthlyContribution = String(
-          safeNumber(updated.retirementContributionFromIncome) +
-          safeNumber(updated.retirementContributionFromEmployer) +
-          safeNumber(updated.retirementContributionFromSavings)
+          safeNumber(updated.preRetirementIncome) *
+            (safeNumber(updated.retirementContributionIncomePct) + safeNumber(updated.retirementContributionEmployerPct)) / 100 +
+          safeNumber(updated.voluntaryRetirementContribution)
         );
-      }
-      if (key === "planToAge" && String(next).trim() !== "") {
-        updated.planToAge = String(Math.min(120, Math.max(safeNumber(current.retirementAge) + 1, Math.round(safeNumber(next)))));
       }
       if (key === "retirementAge" && String(next).trim() !== "" && safeNumber(current.planToAge) <= safeNumber(next)) {
         updated.planToAge = String(Math.min(120, Math.round(safeNumber(next)) + 1));
@@ -825,7 +829,7 @@ export default function App() {
                 <Field label={t.currentAge} value={retirementInput.currentAge} locked={calculatedAge !== null} onLocked={() => navigate("profile")} onChange={(next) => updateRetirement("currentAge", next)} max={119}/>
                 <Field label={t.retirementAge} value={retirementInput.retirementAge} onChange={(next) => updateRetirement("retirementAge", next)} max={119}/>
                 <Field label={t.retirementAccessAge} help={t.retirementAccessHelp} value={retirementInput.retirementAccessAge} onChange={(next) => updateRetirement("retirementAccessAge", next)} max={120}/>
-                <Field label={t.planToAge} value={retirementInput.planToAge} onChange={(next) => updateRetirement("planToAge", next)} max={120}/>
+                <Field label={t.planToAge} value={retirementInput.planToAge} onChange={(next) => updateRetirement("planToAge", next)} min={safeNumber(retirementInput.retirementAge) + 1} max={120}/>
               </div>
               <div className="fields-list retirement-fields">
                 <Field label={t.cash} value={retirementInput.cashSavings} prefix={currencyPrefix} onChange={(next) => updateRetirement("cashSavings", next)}/>
@@ -835,11 +839,16 @@ export default function App() {
                 <Field label={t.preRetirementMonthlyIncome} value={retirementInput.preRetirementIncome} prefix={currencyPrefix} onChange={(next)=>updateRetirement("preRetirementIncome",next)}/>
                 <Field label={t.preRetirementIncomeGrowth} help={t.preRetirementIncomeGrowthHelp} value={retirementInput.preRetirementIncomeGrowth} suffix="%" onChange={(next)=>updateRetirement("preRetirementIncomeGrowth",next)} max={100}/>
                 <Field label={t.preRetirementMonthlyExpenses} value={retirementInput.preRetirementExpenses} prefix={currencyPrefix} onChange={(next)=>updateRetirement("preRetirementExpenses",next)}/>
-                <div className="contribution-breakdown-label"><strong>{t.retirementContributionBreakdown}</strong></div>
-                <Field label={t.contributionFromIncome} value={retirementInput.retirementContributionFromIncome} prefix={currencyPrefix} onChange={(next)=>updateRetirement("retirementContributionFromIncome",next)}/>
-                <Field label={t.contributionFromEmployer} value={retirementInput.retirementContributionFromEmployer} prefix={currencyPrefix} onChange={(next)=>updateRetirement("retirementContributionFromEmployer",next)}/>
-                <Field label={t.contributionFromSavings} help={t.retirementContributionSourceHelp} value={retirementInput.retirementContributionFromSavings} prefix={currencyPrefix} onChange={(next)=>updateRetirement("retirementContributionFromSavings",next)}/>
-                <div className="mini-metric"><span>{t.totalMonthlyContribution}</span><strong>{amount(safeNumber(retirementInput.retirementContributionFromIncome)+safeNumber(retirementInput.retirementContributionFromEmployer)+safeNumber(retirementInput.retirementContributionFromSavings),currency)} {t.perMonth}</strong></div>
+                <div className="contribution-breakdown-label"><span className="field-label-row"><strong>{t.retirementContributionBreakdown}</strong><HelpTip text={t.retirementContributionHelp}/></span></div>
+                <Field label={t.contributionFromIncome} help={t.contributionPercentHelp} value={retirementInput.retirementContributionIncomePct} suffix="%" onChange={(next)=>updateRetirement("retirementContributionIncomePct",next)} max={100}/>
+                <Field label={t.contributionFromEmployer} help={t.contributionPercentHelp} value={retirementInput.retirementContributionEmployerPct} suffix="%" onChange={(next)=>updateRetirement("retirementContributionEmployerPct",next)} max={100}/>
+                <Field label={t.voluntaryRetirementContribution} help={t.voluntaryRetirementContributionHelp} value={retirementInput.voluntaryRetirementContribution} prefix={currencyPrefix} onChange={(next)=>updateRetirement("voluntaryRetirementContribution",next)}/>
+                <div className="mini-metric"><span>{t.totalMonthlyContribution}</span><strong>{amount(
+                  safeNumber(retirementInput.preRetirementIncome) *
+                    (safeNumber(retirementInput.retirementContributionIncomePct) + safeNumber(retirementInput.retirementContributionEmployerPct)) / 100 +
+                  safeNumber(retirementInput.voluntaryRetirementContribution),
+                  currency
+                )} {t.perMonth}</strong></div>
                 <div className="mini-metric"><span>{t.monthlySavings}</span><strong>{retirement.availableMonthlySavings > 0 ? "+" : ""}{amount(retirement.availableMonthlySavings,currency)} {t.perMonth}</strong></div>
                 <Field label={t.desiredRetirementSpending} value={retirementInput.monthlySpending} prefix={currencyPrefix} onChange={(next) => updateRetirement("monthlySpending", next)}/>
                 <Field label={t.monthlyIncome} help={t.monthlyIncomeHelp} value={retirementInput.monthlyIncome} prefix={currencyPrefix} onChange={(next) => updateRetirement("monthlyIncome", next)}/>
@@ -886,7 +895,7 @@ export default function App() {
               <div className="age-grid">
                 <Field label={t.retirementAge} value={retirementInput.retirementAge} onChange={(next) => updateRetirement("retirementAge", next)} max={119}/>
                 <Field label={t.retirementAccessAge} help={t.retirementAccessHelp} value={retirementInput.retirementAccessAge} onChange={(next) => updateRetirement("retirementAccessAge", next)} max={120}/>
-                <Field label={t.planToAge} value={retirementInput.planToAge} onChange={(next) => updateRetirement("planToAge", next)} max={120}/>
+                <Field label={t.planToAge} value={retirementInput.planToAge} onChange={(next) => updateRetirement("planToAge", next)} min={safeNumber(retirementInput.retirementAge) + 1} max={120}/>
               </div>
               <div className="fields-list retirement-fields">
                 <Field label={t.monthlySpending} value={retirementInput.monthlySpending} prefix={currencyPrefix} onChange={(next) => updateRetirement("monthlySpending", next)}/>

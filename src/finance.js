@@ -131,15 +131,21 @@ function projectToRetirement(input, monthlySavingsOverride = null, monthlyContri
 
   const source = ["income","external","savings"].includes(input.retirementContributionSource) ? input.retirementContributionSource : (usesCashFlow ? "income" : "external");
   const legacyContribution = monthlyContributionOverride === null ? safeNumber(input.monthlyContribution) : safeNumber(monthlyContributionOverride);
-  const hasContributionBreakdown = ["retirementContributionFromIncome","retirementContributionFromEmployer","retirementContributionFromSavings"]
+  const hasPercentageContribution = ["retirementContributionIncomePct","retirementContributionEmployerPct","voluntaryRetirementContribution"]
     .some((key) => input[key] !== undefined);
-  const requestedIncomeContribution = hasContributionBreakdown ? safeNumber(input.retirementContributionFromIncome) : (source === "income" ? legacyContribution : 0);
-  const requestedEmployerContribution = hasContributionBreakdown ? safeNumber(input.retirementContributionFromEmployer) : (source === "external" ? legacyContribution : 0);
-  const requestedSavingsContribution = hasContributionBreakdown ? safeNumber(input.retirementContributionFromSavings) : (source === "savings" ? legacyContribution : 0);
-  const requestedContribution = requestedIncomeContribution + requestedEmployerContribution + requestedSavingsContribution;
+  const hasLegacyBreakdown = ["retirementContributionFromIncome","retirementContributionFromEmployer","retirementContributionFromSavings"]
+    .some((key) => input[key] !== undefined);
+  const incomeContributionPct = hasPercentageContribution ? safeNumber(input.retirementContributionIncomePct) / 100 : 0;
+  const employerContributionPct = hasPercentageContribution ? safeNumber(input.retirementContributionEmployerPct) / 100 : 0;
+  const voluntaryMonthlyContribution = hasPercentageContribution ? safeNumber(input.voluntaryRetirementContribution) : 0;
+  const legacyIncomeContribution = !hasPercentageContribution ? (hasLegacyBreakdown ? safeNumber(input.retirementContributionFromIncome) : (source === "income" ? legacyContribution : 0)) : 0;
+  const legacyEmployerContribution = !hasPercentageContribution ? (hasLegacyBreakdown ? safeNumber(input.retirementContributionFromEmployer) : (source === "external" ? legacyContribution : 0)) : 0;
+  const legacySavingsContribution = !hasPercentageContribution ? (hasLegacyBreakdown ? safeNumber(input.retirementContributionFromSavings) : (source === "savings" ? legacyContribution : 0)) : 0;
+  const startingIncomeContribution = hasPercentageContribution ? startingMonthlyIncome * incomeContributionPct : Math.min(legacyIncomeContribution, startingMonthlyIncome);
+  const requestedContribution = hasPercentageContribution ? startingMonthlyIncome * (incomeContributionPct + employerContributionPct) + voluntaryMonthlyContribution : legacyIncomeContribution + legacyEmployerContribution + legacySavingsContribution;
 
   const naturalMonthlySavings = usesCashFlow
-    ? startingMonthlyIncome - startingMonthlyExpenses - Math.min(requestedIncomeContribution, startingMonthlyIncome)
+    ? startingMonthlyIncome - startingMonthlyExpenses - startingIncomeContribution - voluntaryMonthlyContribution
     : safeNumber(input.monthlySavings);
   const legacyMonthlySavings = usesCashFlow
     ? 0
@@ -150,47 +156,60 @@ function projectToRetirement(input, monthlySavingsOverride = null, monthlyContri
   let monthsFromStart = 0;
 
   for (let age=currentAge; age<retirementAge; age+=1) {
-    const openingBalance=totalPools(pools), openingAccessible=accessibleTotal(pools,age>=retirementAccessAge);
-    let annualReturn=0, annualSavings=0, annualContribution=0, annualAdded=0, annualWithdrawn=0, annualUnfundedCashFlow=0;
+    const openingBalance=totalPools(pools), openingAccessible=accessibleTotal(pools,age>=retirementAccessAge), openingInvestmentBalance=Math.max(0,pools.investments);
+    let annualReturn=0, annualCashReturn=0, annualInvestmentReturn=0, annualRetirementReturn=0, annualSavings=0, annualContribution=0, annualAdded=0, annualWithdrawn=0, annualUnfundedCashFlow=0;
     let annualIncome=0, annualExpenses=0, annualContributionFromIncome=0, annualContributionFromEmployer=0, annualContributionFromSavings=0;
 
     for (let month=1; month<=12; month+=1) {
       const cg=pools.cash*monthlyRate(rates.cash), ig=pools.investments*monthlyRate(rates.investments), rg=pools.retirement*monthlyRate(rates.retirement);
-      pools.cash+=cg; pools.investments+=ig; pools.retirement+=rg; annualReturn+=cg+ig+rg;
+      pools.cash+=cg; pools.investments+=ig; pools.retirement+=rg;
+      annualCashReturn+=cg; annualInvestmentReturn+=ig; annualRetirementReturn+=rg; annualReturn+=cg+ig+rg;
 
       const ev=applyMoneyEvents(pools,rates,events.filter((e)=>e.age===age&&e.month===month),age>=retirementAccessAge);
       moneyEventResults.push(...ev.results); unfundedMoneyWithdrawals+=ev.unfunded; annualAdded+=ev.added; annualWithdrawn+=ev.withdrawn;
 
       const currentMonthlyIncome = usesCashFlow
-        ? startingMonthlyIncome * Math.pow(1 + incomeGrowth, monthsFromStart / 12)
+        ? startingMonthlyIncome * Math.pow(1 + incomeGrowth, Math.floor(monthsFromStart / 12))
         : 0;
       const currentMonthlyExpenses = usesCashFlow
         ? startingMonthlyExpenses * Math.pow(1 + inflation, monthsFromStart / 12)
         : 0;
 
-      const fundedIncomeContribution = usesCashFlow
-        ? Math.min(requestedIncomeContribution, currentMonthlyIncome)
-        : requestedIncomeContribution;
+      const requestedIncomeContribution = hasPercentageContribution ? currentMonthlyIncome * incomeContributionPct : legacyIncomeContribution;
+      const fundedIncomeContribution = usesCashFlow ? Math.min(requestedIncomeContribution, currentMonthlyIncome) : requestedIncomeContribution;
       if (usesCashFlow) unfundedRetirementContribution += Math.max(0, requestedIncomeContribution - fundedIncomeContribution);
 
-      const savingsShortfall = requestedSavingsContribution > 0
-        ? withdrawLowestReturnFirst(pools, rates, requestedSavingsContribution, false)
-        : 0;
-      const fundedSavingsContribution = requestedSavingsContribution - savingsShortfall;
-      unfundedRetirementContribution += savingsShortfall;
-
+      const requestedEmployerContribution = hasPercentageContribution ? currentMonthlyIncome * employerContributionPct : legacyEmployerContribution;
       const fundedEmployerContribution = requestedEmployerContribution;
+
+      const baseMonthlyCashFlow = usesCashFlow ? currentMonthlyIncome - currentMonthlyExpenses - fundedIncomeContribution : legacyMonthlySavings;
+      let monthlyCashFlow = baseMonthlyCashFlow + extraMonthlySavings;
+
+      let fundedSavingsContribution = 0;
+      const requestedSavingsContribution = hasPercentageContribution ? voluntaryMonthlyContribution : legacySavingsContribution;
+      if (requestedSavingsContribution > 0) {
+        if (hasPercentageContribution) {
+          const fromMonthlySurplus = Math.min(Math.max(0, monthlyCashFlow), requestedSavingsContribution);
+          fundedSavingsContribution += fromMonthlySurplus;
+          monthlyCashFlow -= fromMonthlySurplus;
+          const remainingVoluntary = requestedSavingsContribution - fromMonthlySurplus;
+          const fromCashSavings = Math.min(Math.max(0, pools.cash), remainingVoluntary);
+          pools.cash = Math.max(0, pools.cash - fromCashSavings);
+          fundedSavingsContribution += fromCashSavings;
+          unfundedRetirementContribution += Math.max(0, remainingVoluntary - fromCashSavings);
+        } else {
+          const savingsShortfall = withdrawLowestReturnFirst(pools, rates, requestedSavingsContribution, false);
+          fundedSavingsContribution = requestedSavingsContribution - savingsShortfall;
+          unfundedRetirementContribution += savingsShortfall;
+        }
+      }
+
       const fundedContribution = fundedIncomeContribution + fundedEmployerContribution + fundedSavingsContribution;
       pools.retirement += fundedContribution;
       annualContribution += fundedContribution;
       annualContributionFromIncome += fundedIncomeContribution;
       annualContributionFromEmployer += fundedEmployerContribution;
       annualContributionFromSavings += fundedSavingsContribution;
-
-      const baseMonthlyCashFlow = usesCashFlow
-        ? currentMonthlyIncome - currentMonthlyExpenses - fundedIncomeContribution
-        : legacyMonthlySavings;
-      const monthlyCashFlow = baseMonthlyCashFlow + extraMonthlySavings;
 
       annualIncome += currentMonthlyIncome;
       annualExpenses += currentMonthlyExpenses;
@@ -208,12 +227,13 @@ function projectToRetirement(input, monthlySavingsOverride = null, monthlyContri
     }
 
     yearlySummary.push({
-      age:age+1, openingBalance, openingAccessible,
+      age:age+1, openingBalance, openingAccessible, openingInvestmentBalance,
       monthlyIncome:annualIncome/12, annualIncome,
       monthlyExpenses:annualExpenses/12, annualExpenses,
       monthlySavings:annualSavings/12, annualSavings,
       monthlyRetirementContribution:annualContribution/12, annualRetirementContribution:annualContribution,
       annualContributionFromIncome, annualContributionFromEmployer, annualContributionFromSavings,
+      cashReturn:annualCashReturn, investmentReturn:annualInvestmentReturn, retirementReturn:annualRetirementReturn,
       totalReturn:annualReturn, moneyAdded:annualAdded, moneyWithdrawn:annualWithdrawn, netMoneyEvents:annualAdded-annualWithdrawn,
       majorWithdrawals:annualWithdrawn, unfundedCashFlow:annualUnfundedCashFlow,
       cashBalance:Math.max(0,pools.cash), investmentBalance:Math.max(0,pools.investments), retirementBalance:Math.max(0,pools.retirement),

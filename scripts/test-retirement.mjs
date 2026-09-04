@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { calculateRetirement } from "../src/finance.js";
 import { defaultRetirement } from "../src/data.js";
 
-const plan = (overrides = {}) => ({ ...defaultRetirement, preRetirementIncome: undefined, preRetirementIncomeGrowth: undefined, preRetirementExpenses: undefined, retirementContributionSource: undefined, retirementContributionFromIncome: undefined, retirementContributionFromEmployer: undefined, retirementContributionFromSavings: undefined, ...overrides });
+const plan = (overrides = {}) => ({ ...defaultRetirement, preRetirementIncome: undefined, preRetirementIncomeGrowth: undefined, preRetirementExpenses: undefined, retirementContributionSource: undefined, retirementContributionIncomePct: undefined, retirementContributionEmployerPct: undefined, voluntaryRetirementContribution: undefined, retirementContributionFromIncome: undefined, retirementContributionFromEmployer: undefined, retirementContributionFromSavings: undefined, ...overrides });
 
 const effectiveReturn = calculateRetirement(plan({
   currentAge: 40,
@@ -306,5 +306,43 @@ const minimumHorizon = calculateRetirement(plan({
   monthlySpending: 0, monthlyIncome: 0, moneyEvents: [], majorWithdrawals: [],
 }));
 assert.equal(minimumHorizon.planToAge, 61, "plan horizon must always be at least one year after retirement");
+
+
+const percentageContributions = calculateRetirement(plan({
+  currentAge: 40, retirementAge: 41, retirementAccessAge: 40, planToAge: 42,
+  cashSavings: 0, investmentSavings: 1000, retirementSavings: 0,
+  preRetirementIncome: 10000, preRetirementIncomeGrowth: 0, preRetirementExpenses: 5000,
+  retirementContributionIncomePct: 6, retirementContributionEmployerPct: 4, voluntaryRetirementContribution: 0,
+  cashReturn: 0, investmentReturn: 0, retirementReturn: 0, inflation: 0,
+  monthlySpending: 0, monthlyIncome: 0, moneyEvents: [], majorWithdrawals: [],
+}));
+assert.equal(percentageContributions.projectedPools.investments, 53800, "6% employee contribution should leave MYR4,400 monthly savings to investments");
+assert.equal(percentageContributions.projectedPools.retirement, 12000, "6% employee + 4% employer should contribute MYR1,000 monthly at MYR10,000 income");
+assert.equal(percentageContributions.availableMonthlySavings, 4400);
+
+const annualStepIncome = calculateRetirement(plan({
+  currentAge: 40, retirementAge: 42, retirementAccessAge: 40, planToAge: 43,
+  cashSavings: 0, investmentSavings: 0, retirementSavings: 0,
+  preRetirementIncome: 10000, preRetirementIncomeGrowth: 10, preRetirementExpenses: 0,
+  retirementContributionIncomePct: 10, retirementContributionEmployerPct: 10, voluntaryRetirementContribution: 0,
+  cashReturn: 0, investmentReturn: 0, retirementReturn: 0, inflation: 0,
+  monthlySpending: 0, monthlyIncome: 0, moneyEvents: [], majorWithdrawals: [],
+}));
+assert.equal(Math.round(annualStepIncome.preRetirementYearlySummary[0].monthlyIncome), 10000, "income increment should apply once per year, not gradually within year one");
+assert.equal(Math.round(annualStepIncome.preRetirementYearlySummary[1].monthlyIncome), 11000, "year two income should reflect the yearly increment");
+assert.equal(Math.round(annualStepIncome.preRetirementYearlySummary[0].annualContributionFromIncome), 12000);
+assert.equal(Math.round(annualStepIncome.preRetirementYearlySummary[1].annualContributionFromIncome), 13200);
+
+const voluntaryFromCashNotLowestReturn = calculateRetirement(plan({
+  currentAge: 40, retirementAge: 41, retirementAccessAge: 40, planToAge: 42,
+  cashSavings: 12000, investmentSavings: 12000, retirementSavings: 0,
+  preRetirementIncome: 0, preRetirementIncomeGrowth: 0, preRetirementExpenses: 0,
+  retirementContributionIncomePct: 0, retirementContributionEmployerPct: 0, voluntaryRetirementContribution: 500,
+  cashReturn: 5, investmentReturn: 1, retirementReturn: 0, inflation: 0,
+  monthlySpending: 0, monthlyIncome: 0, moneyEvents: [], majorWithdrawals: [],
+}));
+assert.ok(voluntaryFromCashNotLowestReturn.projectedPools.cash < 12000, "voluntary contribution should use cash & savings");
+assert.ok(voluntaryFromCashNotLowestReturn.projectedPools.investments > 12000, "voluntary contribution must not automatically consume the lower-return investment pool");
+assert.equal(Math.round(voluntaryFromCashNotLowestReturn.projectedPools.retirement), 6000, "user-entered MYR500 voluntary contribution should reach retirement each month");
 
 console.log("Retirement calculation tests passed.");
