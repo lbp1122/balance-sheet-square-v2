@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { calculateRetirement } from "../src/finance.js";
 import { defaultRetirement } from "../src/data.js";
 
-const plan = (overrides = {}) => ({ ...defaultRetirement, preRetirementIncome: undefined, preRetirementExpenses: undefined, retirementContributionSource: undefined, ...overrides });
+const plan = (overrides = {}) => ({ ...defaultRetirement, preRetirementIncome: undefined, preRetirementIncomeGrowth: undefined, preRetirementExpenses: undefined, retirementContributionSource: undefined, retirementContributionFromIncome: undefined, retirementContributionFromEmployer: undefined, retirementContributionFromSavings: undefined, ...overrides });
 
 const effectiveReturn = calculateRetirement(plan({
   currentAge: 40,
@@ -233,5 +233,78 @@ const unfundedContributionPlan = calculateRetirement(plan({
 }));
 assert.ok(unfundedContributionPlan.unfundedRetirementContribution > 0);
 assert.equal(unfundedContributionPlan.onTrack, false);
+
+const contributionBreakdown = calculateRetirement(plan({
+  currentAge: 40, retirementAge: 41, retirementAccessAge: 40, planToAge: 42,
+  cashSavings: 0, investmentSavings: 0, retirementSavings: 0,
+  preRetirementIncome: 10000, preRetirementIncomeGrowth: 0, preRetirementExpenses: 5000,
+  monthlyContribution: 1000, retirementContributionSource: "income",
+  retirementContributionFromIncome: 600, retirementContributionFromEmployer: 400, retirementContributionFromSavings: 0,
+  cashReturn: 0, investmentReturn: 0, retirementReturn: 0, inflation: 0,
+  monthlySpending: 0, monthlyIncome: 0, moneyEvents: [], majorWithdrawals: [],
+}));
+assert.equal(contributionBreakdown.projectedPools.investments, 52800, "income-funded contribution should reduce monthly savings only by its own component");
+assert.equal(contributionBreakdown.projectedPools.retirement, 12000, "income and employer contribution components should both reach the retirement fund");
+assert.equal(contributionBreakdown.availableMonthlySavings, 4400, "available monthly savings should exclude only the income-funded retirement contribution");
+
+const growingIncome = calculateRetirement(plan({
+  currentAge: 40, retirementAge: 42, retirementAccessAge: 40, planToAge: 43,
+  cashSavings: 0, investmentSavings: 0, retirementSavings: 0,
+  preRetirementIncome: 10000, preRetirementIncomeGrowth: 10, preRetirementExpenses: 0,
+  monthlyContribution: 0, retirementContributionSource: "income",
+  retirementContributionFromIncome: 0, retirementContributionFromEmployer: 0, retirementContributionFromSavings: 0,
+  cashReturn: 0, investmentReturn: 0, retirementReturn: 0, inflation: 0,
+  monthlySpending: 0, monthlyIncome: 0, moneyEvents: [], majorWithdrawals: [],
+}));
+assert.ok(growingIncome.preRetirementYearlySummary[1].monthlyIncome > growingIncome.preRetirementYearlySummary[0].monthlyIncome, "pre-retirement income should grow with the yearly income increment");
+
+const postOnlyMaximum = calculateRetirement(plan({
+  currentAge: 50, retirementAge: 60, retirementAccessAge: 55, planToAge: 80,
+  cashSavings: 0, investmentSavings: 0, retirementSavings: 1500000,
+  preRetirementIncome: 0, preRetirementExpenses: 20000,
+  monthlyContribution: 0, retirementContributionSource: "income",
+  retirementContributionFromIncome: 0, retirementContributionFromEmployer: 0, retirementContributionFromSavings: 0,
+  cashReturn: 0, investmentReturn: 0, retirementReturn: 4, inflation: 2,
+  monthlySpending: 5000, monthlyIncome: 0, moneyEvents: [], majorWithdrawals: [],
+}));
+assert.ok(postOnlyMaximum.unfundedPreRetirementCashFlow > 0, "test setup should contain a pre-retirement cash-flow shortfall");
+assert.ok(postOnlyMaximum.maximumMonthlySpending > 0, "post-retirement sustainable spending must still be calculated from retirement resources");
+
+const shortHorizon = calculateRetirement(plan({
+  currentAge: 60, retirementAge: 60, retirementAccessAge: 55, planToAge: 65,
+  cashSavings: 100000, investmentSavings: 0, retirementSavings: 0,
+  monthlySavings: 0, monthlyContribution: 0,
+  cashReturn: 0, investmentReturn: 0, retirementReturn: 0, inflation: 0,
+  monthlySpending: 2000, monthlyIncome: 0, moneyEvents: [], majorWithdrawals: [],
+}));
+const longHorizon = calculateRetirement(plan({
+  currentAge: 60, retirementAge: 60, retirementAccessAge: 55, planToAge: 70,
+  cashSavings: 100000, investmentSavings: 0, retirementSavings: 0,
+  monthlySavings: 0, monthlyContribution: 0,
+  cashReturn: 0, investmentReturn: 0, retirementReturn: 0, inflation: 0,
+  monthlySpending: 2000, monthlyIncome: 0, moneyEvents: [], majorWithdrawals: [],
+}));
+assert.equal(shortHorizon.retirementRanOut, true, "100k at 2k per month should deplete before age 65");
+assert.equal(longHorizon.retirementRanOut, true);
+assert.ok(Math.abs(shortHorizon.lastsUntil - longHorizon.lastsUntil) < 0.01, "true run-out age must not change when the selected horizon still extends beyond depletion");
+
+const beforeDepletion = calculateRetirement(plan({
+  currentAge: 60, retirementAge: 60, retirementAccessAge: 55, planToAge: 63,
+  cashSavings: 100000, investmentSavings: 0, retirementSavings: 0,
+  monthlySavings: 0, monthlyContribution: 0,
+  cashReturn: 0, investmentReturn: 0, retirementReturn: 0, inflation: 0,
+  monthlySpending: 2000, monthlyIncome: 0, moneyEvents: [], majorWithdrawals: [],
+}));
+assert.equal(beforeDepletion.retirementRanOut, false, "a horizon ending before depletion should report support through the selected age");
+assert.equal(beforeDepletion.lastsUntil, 63);
+
+const minimumHorizon = calculateRetirement(plan({
+  currentAge: 60, retirementAge: 60, retirementAccessAge: 55, planToAge: 60,
+  cashSavings: 100000, investmentSavings: 0, retirementSavings: 0,
+  monthlySavings: 0, monthlyContribution: 0,
+  cashReturn: 0, investmentReturn: 0, retirementReturn: 0, inflation: 0,
+  monthlySpending: 0, monthlyIncome: 0, moneyEvents: [], majorWithdrawals: [],
+}));
+assert.equal(minimumHorizon.planToAge, 61, "plan horizon must always be at least one year after retirement");
 
 console.log("Retirement calculation tests passed.");
