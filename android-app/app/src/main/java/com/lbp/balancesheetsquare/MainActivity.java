@@ -55,6 +55,7 @@ public class MainActivity extends Activity implements PurchasesUpdatedListener {
     private WebViewAssetLoader assetLoader;
     private byte[] pendingPdf;
     private String pendingFilename;
+    private Uri pendingSaveUri;
     private boolean showingOfflinePage;
     private BillingClient billingClient;
     private ProductDetails fullVersionProduct;
@@ -400,6 +401,40 @@ public class MainActivity extends Activity implements PurchasesUpdatedListener {
         }
 
         @JavascriptInterface
+        public void beginSavePdf(String filename) {
+            pendingPdf = null;
+            pendingSaveUri = null;
+            pendingFilename = safeFilename(filename);
+            runOnUiThread(() -> {
+                Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+                intent.addCategory(Intent.CATEGORY_OPENABLE);
+                intent.setType("application/pdf");
+                intent.putExtra(Intent.EXTRA_TITLE, pendingFilename);
+                startActivityForResult(intent, REQUEST_SAVE_PDF);
+            });
+        }
+
+        @JavascriptInterface
+        public void writePdf(String base64) {
+            byte[] data = decodePdf(base64);
+            Uri target = pendingSaveUri;
+            if (data == null || target == null) {
+                runOnUiThread(() -> Toast.makeText(MainActivity.this, R.string.pdf_failed, Toast.LENGTH_LONG).show());
+                return;
+            }
+            try (OutputStream output = getContentResolver().openOutputStream(target)) {
+                if (output == null) throw new IOException("No output stream");
+                output.write(data);
+                runOnUiThread(() -> Toast.makeText(MainActivity.this, R.string.pdf_saved, Toast.LENGTH_SHORT).show());
+            } catch (IOException error) {
+                runOnUiThread(() -> Toast.makeText(MainActivity.this, R.string.pdf_failed, Toast.LENGTH_LONG).show());
+            } finally {
+                pendingSaveUri = null;
+                pendingFilename = null;
+            }
+        }
+
+        @JavascriptInterface
         public void savePdf(String base64, String filename) {
             byte[] data = decodePdf(base64);
             if (data == null) {
@@ -407,6 +442,7 @@ public class MainActivity extends Activity implements PurchasesUpdatedListener {
                 return;
             }
             pendingPdf = data;
+            pendingSaveUri = null;
             pendingFilename = safeFilename(filename);
             runOnUiThread(() -> {
                 Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
@@ -422,17 +458,38 @@ public class MainActivity extends Activity implements PurchasesUpdatedListener {
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode != REQUEST_SAVE_PDF) return;
-        if (resultCode == RESULT_OK && data != null && data.getData() != null && pendingPdf != null) {
-            try (OutputStream output = getContentResolver().openOutputStream(data.getData())) {
-                if (output == null) throw new IOException("No output stream");
-                output.write(pendingPdf);
-                Toast.makeText(this, R.string.pdf_saved, Toast.LENGTH_SHORT).show();
-            } catch (IOException error) {
-                Toast.makeText(this, R.string.pdf_failed, Toast.LENGTH_LONG).show();
+        if (resultCode == RESULT_OK && data != null && data.getData() != null) {
+            if (pendingPdf != null) {
+                try (OutputStream output = getContentResolver().openOutputStream(data.getData())) {
+                    if (output == null) throw new IOException("No output stream");
+                    output.write(pendingPdf);
+                    Toast.makeText(this, R.string.pdf_saved, Toast.LENGTH_SHORT).show();
+                } catch (IOException error) {
+                    Toast.makeText(this, R.string.pdf_failed, Toast.LENGTH_LONG).show();
+                } finally {
+                    pendingPdf = null;
+                    pendingFilename = null;
+                }
+            } else {
+                pendingSaveUri = data.getData();
+                if (webView != null) {
+                    webView.evaluateJavascript(
+                        "window.dispatchEvent(new Event('bss-pdf-save-location-ready'));",
+                        null
+                    );
+                }
+            }
+        } else {
+            pendingPdf = null;
+            pendingSaveUri = null;
+            pendingFilename = null;
+            if (webView != null) {
+                webView.evaluateJavascript(
+                    "window.dispatchEvent(new Event('bss-pdf-save-cancelled'));",
+                    null
+                );
             }
         }
-        pendingPdf = null;
-        pendingFilename = null;
     }
 
     @Override

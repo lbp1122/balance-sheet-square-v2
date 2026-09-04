@@ -331,6 +331,7 @@ export default function App() {
   const [activeScenario, setActiveScenario] = useState(0);
   const [hydrated, setHydrated] = useState(false);
   const [actionStatus, setActionStatus] = useState("");
+  const [reportBusy, setReportBusy] = useState(false);
   const [billingStatus, setBillingStatus] = useState("");
   const [quarterlyHistory, setQuarterlyHistory] = useState([]);
   const [eventEditorOpen, setEventEditorOpen] = useState(false);
@@ -534,29 +535,62 @@ export default function App() {
   };
 
   const prepareReport = async (shouldShare) => {
-    setActionStatus(t.exporting);
+    if (reportBusy) return;
+    setReportBusy(true);
     try {
-      const { pdf, filename } = await createReportPdf({ profile, calculatedAge, values, balance, retirement, retirementInput, currency, language, t, edition, quarterlyHistory });
-      if (window.AndroidBridge?.sharePdf || window.AndroidBridge?.savePdf) {
+      const plannedFilename = `retirement-simulator-${edition}-${new Date().toISOString().slice(0, 10)}.pdf`;
+
+      if (!shouldShare && window.AndroidBridge?.beginSavePdf && window.AndroidBridge?.writePdf) {
+        setActionStatus(t.choosePdfLocation);
+        await new Promise((resolve, reject) => {
+          const cleanup = () => {
+            window.removeEventListener("bss-pdf-save-location-ready", ready);
+            window.removeEventListener("bss-pdf-save-cancelled", cancelled);
+          };
+          const ready = () => { cleanup(); resolve(); };
+          const cancelled = () => {
+            cleanup();
+            const error = new Error("Save cancelled");
+            error.name = "AbortError";
+            reject(error);
+          };
+          window.addEventListener("bss-pdf-save-location-ready", ready, { once: true });
+          window.addEventListener("bss-pdf-save-cancelled", cancelled, { once: true });
+          window.AndroidBridge.beginSavePdf(plannedFilename);
+        });
+
+        setActionStatus(t.exporting);
+        const { pdf } = await createReportPdf({ profile, retirement, currency, language, t, edition });
         const base64 = await blobToBase64(pdf);
-        if (shouldShare && window.AndroidBridge.sharePdf) window.AndroidBridge.sharePdf(base64, filename);
-        else if (window.AndroidBridge.savePdf) window.AndroidBridge.savePdf(base64, filename);
-        else window.AndroidBridge.sharePdf(base64, filename);
-        setActionStatus(shouldShare ? t.shared : t.pdfReady);
+        window.AndroidBridge.writePdf(base64);
+        setActionStatus(t.pdfReady);
       } else {
-        const file = new File([pdf], filename, { type: "application/pdf" });
-        if (shouldShare && navigator.share && navigator.canShare?.({ files: [file] })) {
-          await navigator.share({ title: t.reportTitle, text: t.brand, files: [file] });
-          setActionStatus(t.shared);
+        setActionStatus(t.exporting);
+        const { pdf, filename } = await createReportPdf({ profile, retirement, currency, language, t, edition });
+        if (window.AndroidBridge?.sharePdf || window.AndroidBridge?.savePdf) {
+          const base64 = await blobToBase64(pdf);
+          if (shouldShare && window.AndroidBridge.sharePdf) window.AndroidBridge.sharePdf(base64, filename);
+          else if (window.AndroidBridge.savePdf) window.AndroidBridge.savePdf(base64, filename);
+          else window.AndroidBridge.sharePdf(base64, filename);
+          setActionStatus(shouldShare ? t.shared : t.pdfReady);
         } else {
-          downloadBlob(pdf, filename);
-          setActionStatus(shouldShare ? t.shareUnavailable : t.pdfReady);
+          const file = new File([pdf], filename, { type: "application/pdf" });
+          if (shouldShare && navigator.share && navigator.canShare?.({ files: [file] })) {
+            await navigator.share({ title: t.retirementSimulatorReport, text: t.brand, files: [file] });
+            setActionStatus(t.shared);
+          } else {
+            downloadBlob(pdf, filename);
+            setActionStatus(shouldShare ? t.shareUnavailable : t.pdfReady);
+          }
         }
       }
     } catch (error) {
-      if (error?.name !== "AbortError") setActionStatus(t.shareUnavailable);
+      if (error?.name === "AbortError") setActionStatus("");
+      else setActionStatus(t.shareUnavailable);
+    } finally {
+      setReportBusy(false);
+      window.setTimeout(() => setActionStatus(""), 4200);
     }
-    window.setTimeout(() => setActionStatus(""), 4200);
   };
 
   const purchaseFullVersion = () => {
@@ -888,7 +922,7 @@ export default function App() {
       <PageHeader eyebrow="07" title={t.reportTitle} hint={t.reportHint} status={<StatusPill tone="teal"><Icon name="lock"/>{t.local}</StatusPill>}/>
       <div className="report-layout">
         <div className="report-preview">
-          <div className="report-preview-head"><img src="./app-icon-192.png" alt=""/><div><span>{t.brand}</span><h2>{profile.name ? `${profile.name}: ${t.wealthReport}` : t.wealthReport}</h2><small>{t.age}: ${calculatedAge ?? "—"} · ${t.professionLabel}: ${profile.profession || "—"}<br/>{t.asAt} ${new Date().toLocaleDateString(language === "en" ? "en-GB" : language === "ms" ? "ms-MY" : "zh-CN")}</small></div></div>
+          <div className="report-preview-head"><img src="./app-icon-192.png" alt=""/><div><span>{t.brand}</span><h2>{profile.name ? `${profile.name}: ${t.retirementSimulatorReport}` : t.retirementSimulatorReport}</h2><small>{t.age}: ${calculatedAge ?? "—"} · ${t.professionLabel}: ${profile.profession || "—"}<br/>{t.asAt} ${new Date().toLocaleDateString(language === "en" ? "en-GB" : language === "ms" ? "ms-MY" : "zh-CN")}</small></div></div>
           <div className="report-summary"><Stat label={t.totalAssets} value={amount(balance.assets, currency, true)} tone="teal"/><Stat label={t.liabilities} value={amount(balance.liabilities, currency, true)} tone={debtTone}/><Stat label={t.netWorth} value={amount(balance.equity, currency, true)} tone={balance.equity >= 0 ? "blue" : "red"}/></div>
           <div className="report-ratios">
             <Stat label={t.equity} value={amount(balance.equity, currency, true)} note={equityComment} tone={balance.equity >= 0 ? "teal" : "red"}/>
@@ -918,8 +952,8 @@ export default function App() {
         </div>
         <aside className="card report-actions-card">
           <span className="big-icon blue"><Icon name="report"/></span><h2>{t.reportPage}</h2><p>{t.reportPrivacy}</p>
-          <button type="button" className="button primary full large" onClick={() => prepareReport(false)}><Icon name="download"/>{t.exportPdf}</button>
-          <button type="button" className="button secondary full large" onClick={() => prepareReport(true)}><Icon name="share"/>{t.shareReport}</button>
+          <button type="button" className="button primary full large" disabled={reportBusy} onClick={() => prepareReport(false)}><Icon name="download"/>{t.exportPdf}</button>
+          <button type="button" className="button secondary full large" disabled={reportBusy} onClick={() => prepareReport(true)}><Icon name="share"/>{t.shareReport}</button>
           <span className="action-status" aria-live="polite">{actionStatus}</span>
           <a className="privacy-link" href="./privacy.html">{t.privacyPolicy}<Icon name="next"/></a>
           <button type="button" className="reset-link" onClick={resetAll}>{t.reset}</button>
