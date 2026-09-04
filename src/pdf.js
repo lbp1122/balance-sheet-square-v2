@@ -668,6 +668,6 @@ export async function createReportPdf({ profile = {}, calculatedAge = null, valu
   const suffix = isFree ? "free" : "paid";
   return {
     pdf,
-    filename: `retirement-simulator-${suffix}-${new Date().toISOString().slice(0,10)}.pdf`,
+    filename: `my-wealth-square-${suffix}-${new Date().toISOString().slice(0,10)}.pdf`,
   };
 }
