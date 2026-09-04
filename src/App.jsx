@@ -923,7 +923,7 @@ export default function App() {
       <PageHeader eyebrow="07" title={t.reportTitle} hint={t.reportHint} status={<StatusPill tone="teal"><Icon name="lock"/>{t.local}</StatusPill>}/>
       <div className="report-layout">
         <div className="report-preview">
-          <div className="report-preview-head"><img src="./app-icon-192.png" alt=""/><div><span>{t.brand}</span><h2>{profile.name ? `${profile.name}: ${t.retirementSimulatorReport}` : t.retirementSimulatorReport}</h2><small>{t.age}: ${calculatedAge ?? "—"} · ${t.professionLabel}: ${profile.profession || "—"}<br/>{t.asAt} ${new Date().toLocaleDateString(language === "en" ? "en-GB" : language === "ms" ? "ms-MY" : "zh-CN")}</small></div></div>
+          <div className="report-preview-head"><img src="./app-icon-192.png" alt=""/><div><span>{t.brand}</span><h2>{profile.name ? `${profile.name} : ${t.wealthTitle}` : t.wealthTitle}</h2><small>{t.age}: ${calculatedAge ?? "—"} · ${t.professionLabel}: ${profile.profession || "—"}<br/>{t.asAt} ${new Date().toLocaleDateString(language === "en" ? "en-GB" : language === "ms" ? "ms-MY" : "zh-CN")}</small></div></div>
           <div className="report-summary"><Stat label={t.totalAssets} value={amount(balance.assets, currency, true)} tone="teal"/><Stat label={t.liabilities} value={amount(balance.liabilities, currency, true)} tone={debtTone}/><Stat label={t.netWorth} value={amount(balance.equity, currency, true)} tone={balance.equity >= 0 ? "blue" : "red"}/></div>
           <div className="report-ratios">
             <Stat label={t.equity} value={amount(balance.equity, currency, true)} note={equityComment} tone={balance.equity >= 0 ? "teal" : "red"}/>
