@@ -235,6 +235,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .field-control b { min-width: 47px; padding-left: 14px; color: #7d8ba0; font-size: 14px; }
 .field-control b.suffix { min-width: 34px; padding: 0 12px 0 0; }
 .field-control input { width: 100%; padding: 10px 14px 10px 4px; color: var(--navy); background: transparent; border: 0; outline: 0; text-align: right; font-size: 18px; font-weight: 820; font-variant-numeric: tabular-nums; }
+.field-control select { width: 100%; min-height: 46px; padding: 9px 38px 9px 14px; color: var(--navy); background: transparent; border: 0; outline: 0; font-size: 16px; font-weight: 760; }
 .guide-card { position: sticky; top: 105px; padding: 30px; overflow: hidden; }
 .guide-number { position: absolute; right: 18px; top: -23px; color: rgba(25,84,209,.07); font-size: 126px; font-weight: 950; line-height: 1; }
 .guide-card h3 { position: relative; margin: 0; color: var(--navy); font-size: 24px; }
@@ -272,6 +273,18 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .advanced-assumptions summary { padding: 14px 15px; color: var(--blue); cursor: pointer; font-size: 14px; font-weight: 820; }
 .advanced-assumptions[open] summary { border-bottom: 1px solid var(--line); }
 .advanced-assumptions > .fields-list { padding: 4px 14px 12px; }
+.yearly-assumptions-card { margin: 4px 14px 14px; padding: 14px; background: white; border: 1px solid var(--line); border-radius: 12px; }
+.yearly-assumptions-head strong { display: block; color: var(--navy); font-size: 15px; }
+.yearly-assumptions-head small { display: block; margin-top: 4px; color: var(--muted); font-size: 12px; line-height: 1.45; }
+.yearly-assumption-list { margin-top: 12px; display: grid; gap: 8px; }
+.yearly-assumption-row { padding: 10px 11px; display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; background: #f5f8fc; border-radius: 10px; }
+.yearly-assumption-row strong, .yearly-assumption-row span { display: block; }
+.yearly-assumption-row strong { color: var(--navy); font-size: 13px; }
+.yearly-assumption-row span { margin-top: 3px; color: var(--muted); font-size: 11px; line-height: 1.4; }
+.yearly-assumption-row button { padding: 6px 8px; color: #9b3737; background: var(--red-light); border: 0; border-radius: 7px; font-size: 11px; font-weight: 800; cursor: pointer; }
+.yearly-assumption-editor { margin-top: 12px; padding-top: 10px; display: grid; border-top: 1px solid var(--line); }
+.yearly-assumption-editor .field { min-height: 62px; }
+.yearly-assumption-add { width: 100%; min-height: 44px; margin-top: 10px; }
 .field-control input[readonly] { color: #53647a; cursor: pointer; }
 .inline-link { margin: -2px 0 8px auto; padding: 8px 11px; color: var(--blue); background: var(--blue-light); border: 0; border-radius: 9px; font-size: 13px; font-weight: 780; cursor: pointer; }
 .major-withdrawals-card { margin-top: 10px; padding: 18px; border: 1px solid #ead78f; border-radius: 16px; background: #fffaf0; }

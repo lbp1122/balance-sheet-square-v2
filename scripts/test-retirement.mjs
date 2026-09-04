@@ -312,7 +312,7 @@ const percentageContributions = calculateRetirement(plan({
   currentAge: 40, retirementAge: 41, retirementAccessAge: 40, planToAge: 42,
   cashSavings: 0, investmentSavings: 1000, retirementSavings: 0,
   preRetirementIncome: 10000, preRetirementIncomeGrowth: 0, preRetirementExpenses: 5000,
-  retirementContributionIncomePct: 6, retirementContributionEmployerPct: 4, voluntaryRetirementContribution: 0,
+  retirementContributionIncomePct: 6, retirementContributionEmployerPct: 4, voluntaryRetirementContribution: 0, surplusDestination: "investments",
   cashReturn: 0, investmentReturn: 0, retirementReturn: 0, inflation: 0,
   monthlySpending: 0, monthlyIncome: 0, moneyEvents: [], majorWithdrawals: [],
 }));
@@ -344,5 +344,53 @@ const voluntaryFromCashNotLowestReturn = calculateRetirement(plan({
 assert.ok(voluntaryFromCashNotLowestReturn.projectedPools.cash < 12000, "voluntary contribution should use cash & savings");
 assert.ok(voluntaryFromCashNotLowestReturn.projectedPools.investments > 12000, "voluntary contribution must not automatically consume the lower-return investment pool");
 assert.equal(Math.round(voluntaryFromCashNotLowestReturn.projectedPools.retirement), 6000, "user-entered MYR500 voluntary contribution should reach retirement each month");
+
+const surplusDefaultsToCash = calculateRetirement(plan({
+  currentAge: 40, retirementAge: 41, retirementAccessAge: 40, planToAge: 42,
+  cashSavings: 0, investmentSavings: 1000, retirementSavings: 0,
+  preRetirementIncome: 1000, preRetirementIncomeGrowth: 0, preRetirementExpenses: 0,
+  retirementContributionIncomePct: 0, retirementContributionEmployerPct: 0, voluntaryRetirementContribution: 0,
+  surplusDestination: "cash",
+  cashReturn: 0, investmentReturn: 0, retirementReturn: 0, inflation: 0,
+  monthlySpending: 0, monthlyIncome: 0, moneyEvents: [], majorWithdrawals: [],
+}));
+assert.equal(surplusDefaultsToCash.projectedPools.cash, 12000, "new surplus should remain in cash when cash is selected");
+assert.equal(surplusDefaultsToCash.projectedPools.investments, 1000, "simulator must not assume surplus was invested");
+
+const surplusCanGoToInvestments = calculateRetirement(plan({
+  currentAge: 40, retirementAge: 41, retirementAccessAge: 40, planToAge: 42,
+  cashSavings: 0, investmentSavings: 1000, retirementSavings: 0,
+  preRetirementIncome: 1000, preRetirementIncomeGrowth: 0, preRetirementExpenses: 0,
+  retirementContributionIncomePct: 0, retirementContributionEmployerPct: 0, voluntaryRetirementContribution: 0,
+  surplusDestination: "investments",
+  cashReturn: 0, investmentReturn: 0, retirementReturn: 0, inflation: 0,
+  monthlySpending: 0, monthlyIncome: 0, moneyEvents: [], majorWithdrawals: [],
+}));
+assert.equal(surplusCanGoToInvestments.projectedPools.investments, 13000, "surplus should only enter investments when the user selects investments");
+
+const yearlyReturnOverrides = calculateRetirement(plan({
+  currentAge: 40, retirementAge: 42, retirementAccessAge: 40, planToAge: 43,
+  cashSavings: 0, investmentSavings: 100000, retirementSavings: 0,
+  preRetirementIncome: 0, preRetirementIncomeGrowth: 0, preRetirementExpenses: 0,
+  retirementContributionIncomePct: 0, retirementContributionEmployerPct: 0, voluntaryRetirementContribution: 0,
+  surplusDestination: "cash",
+  cashReturn: 0, investmentReturn: 4, retirementReturn: 0, inflation: 0,
+  yearlyAssumptions: [{ age: 41, cashReturn: 0, investmentReturn: 1, retirementReturn: 0, surplusDestination: "cash" }],
+  monthlySpending: 0, monthlyIncome: 0, moneyEvents: [], majorWithdrawals: [],
+}));
+assert.equal(Math.round(yearlyReturnOverrides.projectedPools.investments), 105040, "age-specific return should override the base return for that year only");
+
+const yearlySurplusOverride = calculateRetirement(plan({
+  currentAge: 40, retirementAge: 42, retirementAccessAge: 40, planToAge: 43,
+  cashSavings: 0, investmentSavings: 0, retirementSavings: 0,
+  preRetirementIncome: 1000, preRetirementIncomeGrowth: 0, preRetirementExpenses: 0,
+  retirementContributionIncomePct: 0, retirementContributionEmployerPct: 0, voluntaryRetirementContribution: 0,
+  surplusDestination: "cash",
+  cashReturn: 0, investmentReturn: 0, retirementReturn: 0, inflation: 0,
+  yearlyAssumptions: [{ age: 40, cashReturn: 0, investmentReturn: 0, retirementReturn: 0, surplusDestination: "investments" }],
+  monthlySpending: 0, monthlyIncome: 0, moneyEvents: [], majorWithdrawals: [],
+}));
+assert.equal(yearlySurplusOverride.projectedPools.investments, 12000, "year override should send that year's surplus to investments");
+assert.equal(yearlySurplusOverride.projectedPools.cash, 12000, "following year should revert to the base cash destination");
 
 console.log("Retirement calculation tests passed.");

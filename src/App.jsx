@@ -112,6 +112,22 @@ function Field({ label, help, value, prefix, suffix, onChange, min = 0, max, loc
   );
 }
 
+function SelectField({ label, help, value, onChange, options = [] }) {
+  return (
+    <label className="field">
+      <span className="field-label-row">
+        <span className="field-label">{label}</span>
+        {help && <HelpTip text={help}/>}
+      </span>
+      <span className="field-control">
+        <select value={value} onChange={(event) => onChange(event.target.value)} aria-label={label}>
+          {options.map((option) => <option value={option.value} key={option.value}>{option.label}</option>)}
+        </select>
+      </span>
+    </label>
+  );
+}
+
 function StatusPill({ children, tone = "blue" }) {
   return <span className={`status-pill status-${tone}`}>{children}</span>;
 }
@@ -337,6 +353,14 @@ export default function App() {
   const [eventEditorOpen, setEventEditorOpen] = useState(false);
   const [editingEventId, setEditingEventId] = useState(null);
   const [eventDraft, setEventDraft] = useState({ type: "withdraw", age: String(defaultRetirement.retirementAge), month: "1", amount: "", reason: "0", destination: "cash" });
+  const [yearAssumptionOpen, setYearAssumptionOpen] = useState(false);
+  const [yearAssumptionDraft, setYearAssumptionDraft] = useState({
+    age: String(defaultRetirement.currentAge),
+    cashReturn: String(defaultRetirement.cashReturn),
+    investmentReturn: String(defaultRetirement.investmentReturn),
+    retirementReturn: String(defaultRetirement.retirementReturn),
+    surplusDestination: defaultRetirement.surplusDestination,
+  });
   const t = translations[language];
   const currencyPrefix = currency === "MYR" ? "MYR" : currency === "USD" ? "USD" : "CNY";
 
@@ -369,6 +393,8 @@ export default function App() {
         if (saved.retirementInput.preRetirementIncome === undefined) migratedRetirement.preRetirementIncome = String(safeNumber(saved.retirementInput.monthlySavings) + safeNumber(savedValues.monthlyExpenses) + safeNumber(saved.retirementInput.monthlyContribution));
         if (saved.retirementInput.preRetirementIncomeGrowth === undefined) migratedRetirement.preRetirementIncomeGrowth = "0";
         if (saved.retirementInput.retirementContributionSource === undefined) migratedRetirement.retirementContributionSource = "income";
+        if (saved.retirementInput.surplusDestination === undefined) migratedRetirement.surplusDestination = "cash";
+        if (!Array.isArray(saved.retirementInput.yearlyAssumptions)) migratedRetirement.yearlyAssumptions = [];
         const hasPercentageContribution = ["retirementContributionIncomePct","retirementContributionEmployerPct","voluntaryRetirementContribution"]
           .some((key) => saved.retirementInput[key] !== undefined);
         if (!hasPercentageContribution) {
@@ -516,6 +542,38 @@ export default function App() {
     setEventEditorOpen(false);setEditingEventId(null);
   };
   const removeMoneyEvent = (id) => setRetirementInput((current)=>({...current,majorWithdrawals:[],moneyEvents:(Array.isArray(current.moneyEvents)?current.moneyEvents:[]).filter((e)=>e.id!==id)}));
+
+  const startYearAssumption = () => {
+    if (isFree) { setUpgradeOpen(true); return; }
+    setYearAssumptionDraft({
+      age: String(retirement.currentAge),
+      cashReturn: String(retirementInput.cashReturn),
+      investmentReturn: String(retirementInput.investmentReturn),
+      retirementReturn: String(retirementInput.retirementReturn),
+      surplusDestination: retirementInput.surplusDestination || "cash",
+    });
+    setYearAssumptionOpen(true);
+  };
+  const saveYearAssumption = () => {
+    const age = Math.min(retirement.planToAge - 1, Math.max(retirement.currentAge, Math.round(safeNumber(yearAssumptionDraft.age))));
+    const item = {
+      age,
+      cashReturn: String(safeNumber(yearAssumptionDraft.cashReturn)),
+      investmentReturn: String(safeNumber(yearAssumptionDraft.investmentReturn)),
+      retirementReturn: String(safeNumber(yearAssumptionDraft.retirementReturn)),
+      surplusDestination: ["cash","investments","retirement"].includes(yearAssumptionDraft.surplusDestination) ? yearAssumptionDraft.surplusDestination : "cash",
+    };
+    setRetirementInput((current) => {
+      const existing = Array.isArray(current.yearlyAssumptions) ? current.yearlyAssumptions : [];
+      const next = [...existing.filter((row) => Math.round(safeNumber(row.age)) !== age), item].sort((x,y)=>safeNumber(x.age)-safeNumber(y.age));
+      return { ...current, yearlyAssumptions: next };
+    });
+    setYearAssumptionOpen(false);
+  };
+  const removeYearAssumption = (age) => setRetirementInput((current) => ({
+    ...current,
+    yearlyAssumptions: (Array.isArray(current.yearlyAssumptions) ? current.yearlyAssumptions : []).filter((row) => Math.round(safeNumber(row.age)) !== Math.round(safeNumber(age))),
+  }));
 
   const saveQuarterlySnapshot = () => {
     const now = new Date();
@@ -784,6 +842,38 @@ export default function App() {
     </section>
   );
 
+  const YearlyAssumptionsSection = () => {
+    const rows = Array.isArray(retirementInput.yearlyAssumptions) ? retirementInput.yearlyAssumptions : [];
+    const destinationOptions = [
+      { value: "cash", label: t.surplusDestinations[0] },
+      { value: "investments", label: t.surplusDestinations[1] },
+      { value: "retirement", label: t.surplusDestinations[2] },
+    ];
+    return (
+      <section className="yearly-assumptions-card">
+        <div className="yearly-assumptions-head"><div><strong>{t.yearlyAssumptionsTitle}</strong><small>{t.yearlyAssumptionsHelp}</small></div></div>
+        {isFree ? <small className="withdrawal-limit">{t.yearlyAssumptionsPaid}</small> : (
+          <>
+            {rows.length ? <div className="yearly-assumption-list">{rows.map((row) => (
+              <div className="yearly-assumption-row" key={row.age}>
+                <div><strong>{t.age} {row.age}</strong><span>{t.cashReturn}: {safeNumber(row.cashReturn)}% · {t.investmentReturn}: {safeNumber(row.investmentReturn)}% · {t.retirementReturn}: {safeNumber(row.retirementReturn)}% · {t.surplusDestination}: {t.surplusDestinations[["cash","investments","retirement"].indexOf(row.surplusDestination)] || t.surplusDestinations[0]}</span></div>
+                <button type="button" onClick={() => removeYearAssumption(row.age)}>{t.withdrawalRemove}</button>
+              </div>
+            ))}</div> : <p className="withdrawal-empty">{t.noYearAssumptions}</p>}
+            {yearAssumptionOpen ? <div className="yearly-assumption-editor">
+              <Field label={t.age} value={yearAssumptionDraft.age} min={retirement.currentAge} max={retirement.planToAge-1} onChange={(next)=>setYearAssumptionDraft((c)=>({...c,age:next}))}/>
+              <Field label={t.cashReturn} value={yearAssumptionDraft.cashReturn} suffix="%" max={30} onChange={(next)=>setYearAssumptionDraft((c)=>({...c,cashReturn:next}))}/>
+              <Field label={t.investmentReturn} value={yearAssumptionDraft.investmentReturn} suffix="%" max={30} onChange={(next)=>setYearAssumptionDraft((c)=>({...c,investmentReturn:next}))}/>
+              <Field label={t.retirementReturn} value={yearAssumptionDraft.retirementReturn} suffix="%" max={30} onChange={(next)=>setYearAssumptionDraft((c)=>({...c,retirementReturn:next}))}/>
+              <SelectField label={t.surplusDestination} help={t.surplusDestinationHelp} value={yearAssumptionDraft.surplusDestination} options={destinationOptions} onChange={(next)=>setYearAssumptionDraft((c)=>({...c,surplusDestination:next}))}/>
+              <div className="withdrawal-editor-actions"><button type="button" className="button ghost" onClick={()=>setYearAssumptionOpen(false)}>{t.cancel}</button><button type="button" className="button primary" onClick={saveYearAssumption}>{t.saveYearAssumption}</button></div>
+            </div> : <button type="button" className="button secondary yearly-assumption-add" onClick={startYearAssumption}>{t.addYearAssumption}</button>}
+          </>
+        )}
+      </section>
+    );
+  };
+
   const ReturnAssumptions = () => (
     <details className="advanced-assumptions">
       <summary>{t.advancedSettings}</summary>
@@ -794,6 +884,7 @@ export default function App() {
         <Field label={t.retirementReturn} value={isFree ? "2.5" : retirementInput.retirementReturn} suffix="%" locked={isFree} onLocked={() => setUpgradeOpen(true)} onChange={(next) => updateRetirement("retirementReturn", next)} max={30}/>
         <Field label={t.inflation} value={retirementInput.inflation} suffix="%" onChange={(next) => updateRetirement("inflation", next)} max={20}/>
       </div>
+      <YearlyAssumptionsSection/>
     </details>
   );
 
@@ -849,7 +940,12 @@ export default function App() {
                   safeNumber(retirementInput.voluntaryRetirementContribution),
                   currency
                 )} {t.perMonth}</strong></div>
-                <div className="mini-metric"><span>{t.monthlySavings}</span><strong>{retirement.availableMonthlySavings > 0 ? "+" : ""}{amount(retirement.availableMonthlySavings,currency)} {t.perMonth}</strong></div>
+                <div className="mini-metric"><span>{t.monthlySurplus}</span><strong>{retirement.availableMonthlySavings > 0 ? "+" : ""}{amount(retirement.availableMonthlySavings,currency)} {t.perMonth}</strong></div>
+                <SelectField label={t.surplusDestination} help={t.surplusDestinationHelp} value={retirementInput.surplusDestination || "cash"} options={[
+                  { value: "cash", label: t.surplusDestinations[0] },
+                  { value: "investments", label: t.surplusDestinations[1] },
+                  { value: "retirement", label: t.surplusDestinations[2] },
+                ]} onChange={(next)=>updateRetirement("surplusDestination",next)}/>
                 <Field label={t.desiredRetirementSpending} value={retirementInput.monthlySpending} prefix={currencyPrefix} onChange={(next) => updateRetirement("monthlySpending", next)}/>
                 <Field label={t.monthlyIncome} help={t.monthlyIncomeHelp} value={retirementInput.monthlyIncome} prefix={currencyPrefix} onChange={(next) => updateRetirement("monthlyIncome", next)}/>
                 {ReturnAssumptions()}
