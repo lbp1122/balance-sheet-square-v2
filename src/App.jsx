@@ -626,7 +626,7 @@ export default function App() {
     if (reportBusy) return;
     setReportBusy(true);
     try {
-      const plannedFilename = `retirement-simulator-${edition}-${new Date().toISOString().slice(0, 10)}.pdf`;
+      const plannedFilename = `my-wealth-square-${edition}-${new Date().toISOString().slice(0, 10)}.pdf`;
 
       if (!shouldShare && window.AndroidBridge?.beginSavePdf && window.AndroidBridge?.writePdf) {
         setActionStatus(t.choosePdfLocation);
