@@ -1059,7 +1059,7 @@ export default function App() {
       <PageHeader eyebrow="07" title={t.reportTitle} hint={t.reportHint} status={<StatusPill tone="teal"><Icon name="lock"/>{t.local}</StatusPill>}/>
       <div className="report-layout">
         <div className="report-preview">
-          <div className="report-preview-head"><img src="./app-icon-192.png" alt=""/><div><span>{t.brand}</span><h2>{profile.name ? `${profile.name} : ${t.wealthTitle}` : t.wealthTitle}</h2><small>{t.age}: ${calculatedAge ?? "—"} · ${t.professionLabel}: ${profile.profession || "—"}<br/>{t.asAt} ${new Date().toLocaleDateString(language === "en" ? "en-GB" : language === "ms" ? "ms-MY" : "zh-CN")}</small></div></div>
+          <div className="report-preview-head"><img src="./app-icon-192.jpg" alt=""/><div><span>{t.brand}</span><h2>{profile.name ? `${profile.name} : ${t.wealthTitle}` : t.wealthTitle}</h2><small>{t.age}: ${calculatedAge ?? "—"} · ${t.professionLabel}: ${profile.profession || "—"}<br/>{t.asAt} ${new Date().toLocaleDateString(language === "en" ? "en-GB" : language === "ms" ? "ms-MY" : "zh-CN")}</small></div></div>
           <div className="report-summary"><Stat label={t.totalAssets} value={amount(balance.assets, currency, true)} tone="teal"/><Stat label={t.liabilities} value={amount(balance.liabilities, currency, true)} tone={debtTone}/><Stat label={t.netWorth} value={amount(balance.equity, currency, true)} tone={balance.equity >= 0 ? "blue" : "red"}/></div>
           <div className="report-ratios">
             <Stat label={t.equity} value={amount(balance.equity, currency, true)} note={equityComment} tone={balance.equity >= 0 ? "teal" : "red"}/>
@@ -1105,7 +1105,7 @@ export default function App() {
     <div className="app-shell">
       <header className="app-header">
         <button className="brand-button" type="button" onClick={() => navigate("home")} aria-label={t.brand}>
-          <img src="./app-icon-192.png" alt=""/><span>{t.brand}</span>
+          <img src="./app-icon-192.jpg" alt=""/><span>{t.brand}</span>
         </button>
         <nav className="desktop-nav" aria-label="Primary navigation">
           {desktopNav.map(([target, label]) => <NavButton key={target} page={target} current={page} label={label} onNavigate={navigate}/>) }

@@ -1,11 +1,11 @@
-# Balance Sheet Square V2 Android app
+# My Wealth Square Android app
 
-This is the V2 Android update containing the redesigned multi-view Balance Sheet Square and retirement simulator. The original website and repository remain unchanged.
+This Android update contains My Wealth Square, including wealth monitoring and the pre-/post-retirement simulator. The original repository remains unchanged.
 
 ## Features
 
 - Android package: `com.lbp.balancesheetsquare`
-- Version code 18 / version name 2.3.11, suitable as an update to the existing closed-test app
+- Version code 19 / version name 2.3.12, suitable as an update to the existing closed-test app
 - Minimum Android 7.0 (API 24)
 - Targets Android 16 (API 36)
 - Local storage for balance-sheet and retirement-planning figures
@@ -33,4 +33,4 @@ gradle -p android-app bundleRelease
 
 The release bundle produced by this project is unsigned. Configure Play App Signing before creating the final bundle for Google Play. Do not commit a keystore, `keystore.properties`, or any signing password.
 
-Build retry note: v2.3.11 release validation.
+Build validation: My Wealth Square v2.3.12.

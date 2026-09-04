@@ -1,6 +1,6 @@
-# Balance Sheet Square V2
+# My Wealth Square
 
-A separate redesigned edition of Balance Sheet Square. The original `lbp1122/balance-sheet-square` repository is intentionally unchanged.
+A personal wealth monitoring and retirement-planning app built from the original Balance Sheet Square concept. The original `lbp1122/balance-sheet-square` repository is intentionally unchanged.
 
 ## Features
 
