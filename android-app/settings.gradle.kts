@@ -14,5 +14,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "BalanceSheetSquare"
+rootProject.name = "MyWealthSquare"
 include(":app")
