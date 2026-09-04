@@ -367,7 +367,21 @@ export default function App() {
         if (saved.retirementInput.retirementSavings === undefined) migratedRetirement.retirementSavings = savedValues.retirement;
         if (saved.retirementInput.preRetirementExpenses === undefined) migratedRetirement.preRetirementExpenses = savedValues.monthlyExpenses;
         if (saved.retirementInput.preRetirementIncome === undefined) migratedRetirement.preRetirementIncome = String(safeNumber(saved.retirementInput.monthlySavings) + safeNumber(savedValues.monthlyExpenses) + safeNumber(saved.retirementInput.monthlyContribution));
+        if (saved.retirementInput.preRetirementIncomeGrowth === undefined) migratedRetirement.preRetirementIncomeGrowth = "0";
         if (saved.retirementInput.retirementContributionSource === undefined) migratedRetirement.retirementContributionSource = "income";
+        const hasContributionBreakdown = ["retirementContributionFromIncome","retirementContributionFromEmployer","retirementContributionFromSavings"].some((key) => saved.retirementInput[key] !== undefined);
+        if (!hasContributionBreakdown) {
+          const legacyContribution = safeNumber(saved.retirementInput.monthlyContribution);
+          const legacySource = saved.retirementInput.retirementContributionSource || "income";
+          migratedRetirement.retirementContributionFromIncome = legacySource === "income" ? String(legacyContribution) : "0";
+          migratedRetirement.retirementContributionFromEmployer = legacySource === "external" ? String(legacyContribution) : "0";
+          migratedRetirement.retirementContributionFromSavings = legacySource === "savings" ? String(legacyContribution) : "0";
+        }
+        migratedRetirement.monthlyContribution = String(
+          safeNumber(migratedRetirement.retirementContributionFromIncome) +
+          safeNumber(migratedRetirement.retirementContributionFromEmployer) +
+          safeNumber(migratedRetirement.retirementContributionFromSavings)
+        );
         if (saved.retirementInput.moneyEvents === undefined) migratedRetirement.moneyEvents = (Array.isArray(saved.retirementInput.majorWithdrawals) ? saved.retirementInput.majorWithdrawals : []).map((item) => ({ ...item, type: "withdraw", destination: "cash" }));
         setRetirementInput(migratedRetirement);
       }
@@ -412,17 +426,13 @@ export default function App() {
   const calculatedAge = useMemo(() => ageFromBirthDate(profile.dateOfBirth), [profile.dateOfBirth]);
   const retirement = useMemo(() => calculateRetirement(retirementInput), [retirementInput]);
   const moneyEvents = Array.isArray(retirementInput.moneyEvents) ? retirementInput.moneyEvents : (Array.isArray(retirementInput.majorWithdrawals) ? retirementInput.majorWithdrawals.map((item) => ({ ...item, type: "withdraw", destination: "cash" })) : []);
-  const baselineRetirement = useMemo(
-    () => moneyEvents.length ? calculateRetirement({ ...retirementInput, moneyEvents: [], majorWithdrawals: [] }) : null,
-    [retirementInput, moneyEvents.length],
-  );
-
   useEffect(() => {
     if (calculatedAge === null) return;
     setRetirementInput((current) => ({ ...current, currentAge: String(calculatedAge) }));
   }, [calculatedAge]);
 
   const navigate = (nextPage) => {
+    if (nextPage === "retirement") setRetirementView("pre");
     window.location.hash = `/${nextPage}`;
     setPage(nextPage);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -437,7 +447,23 @@ export default function App() {
       setUpgradeOpen(true);
       return;
     }
-    setRetirementInput((current) => ({ ...current, [key]: next }));
+    setRetirementInput((current) => {
+      const updated = { ...current, [key]: next };
+      if (["retirementContributionFromIncome","retirementContributionFromEmployer","retirementContributionFromSavings"].includes(key)) {
+        updated.monthlyContribution = String(
+          safeNumber(updated.retirementContributionFromIncome) +
+          safeNumber(updated.retirementContributionFromEmployer) +
+          safeNumber(updated.retirementContributionFromSavings)
+        );
+      }
+      if (key === "planToAge" && String(next).trim() !== "") {
+        updated.planToAge = String(Math.min(120, Math.max(safeNumber(current.retirementAge) + 1, Math.round(safeNumber(next)))));
+      }
+      if (key === "retirementAge" && String(next).trim() !== "" && safeNumber(current.planToAge) <= safeNumber(next)) {
+        updated.planToAge = String(Math.min(120, Math.round(safeNumber(next)) + 1));
+      }
+      return updated;
+    });
     if (key === "preRetirementExpenses") setValues((current) => ({ ...current, monthlyExpenses: next }));
   };
   const loadScenario = (index) => {
@@ -777,14 +803,15 @@ export default function App() {
         ? `${t.mayRetireAt} ${retirement.earliestRetirementAge}`
         : t.notYetAchievable;
     const postOutcome = (result) => {
-      if (!result.onTrack) return `${t.fundsMayRunOutAt} ${result.lastsUntil}`;
+      if (result.retirementRanOut) return `${t.fundsMayRunOutAt} ${result.lastsUntil}`;
       if (result.endBalance > 100) return `${t.remainingFundAtAge} ${result.planToAge}: ${amount(result.endBalance, currency, true)}`;
       return `${t.fundsSupportThroughAge} ${result.planToAge}`;
     };
+    const activeOnTrack = retirementView === "post" ? retirement.retirementOnTrack : retirement.onTrack;
 
     return (
       <section className="content-section page-section retirement-page">
-        <PageHeader eyebrow="05" title={t.retirementTitle} hint={t.retirementHint} status={<StatusPill tone={retirement.onTrack ? "teal" : "red"}>{retirement.onTrack ? t.onTrack : t.needsWork}</StatusPill>}/>
+        <PageHeader eyebrow="05" title={t.retirementTitle} hint={t.retirementHint} status={<StatusPill tone={activeOnTrack ? "teal" : "red"}>{activeOnTrack ? t.onTrack : t.needsWork}</StatusPill>}/>
         <div className="retirement-tabs" role="tablist" aria-label={t.retirementTitle}>
           <button type="button" role="tab" aria-selected={retirementView === "pre"} className={retirementView === "pre" ? "active" : ""} onClick={() => setRetirementView("pre")}><strong>{t.preRetirement}</strong><span>{t.preRetirementHint}</span></button>
           <button type="button" role="tab" aria-selected={retirementView === "post"} className={retirementView === "post" ? "active" : ""} onClick={() => setRetirementView("post")}><strong>{t.postRetirement}</strong><span>{t.postRetirementHint}</span></button>
@@ -806,10 +833,14 @@ export default function App() {
                 <Field label={t.retirement} value={retirementInput.retirementSavings} prefix={currencyPrefix} onChange={(next) => updateRetirement("retirementSavings", next)}/>
                 <button type="button" className="inline-link" onClick={syncRetirement}>{t.useMyBalance} · {amount(safeNumber(values.cash) + safeNumber(values.investments) + safeNumber(values.retirement), currency)}</button>
                 <Field label={t.preRetirementMonthlyIncome} value={retirementInput.preRetirementIncome} prefix={currencyPrefix} onChange={(next)=>updateRetirement("preRetirementIncome",next)}/>
+                <Field label={t.preRetirementIncomeGrowth} help={t.preRetirementIncomeGrowthHelp} value={retirementInput.preRetirementIncomeGrowth} suffix="%" onChange={(next)=>updateRetirement("preRetirementIncomeGrowth",next)} max={100}/>
                 <Field label={t.preRetirementMonthlyExpenses} value={retirementInput.preRetirementExpenses} prefix={currencyPrefix} onChange={(next)=>updateRetirement("preRetirementExpenses",next)}/>
-                <Field label={t.monthlyContribution} value={retirementInput.monthlyContribution} prefix={currencyPrefix} onChange={(next)=>updateRetirement("monthlyContribution",next)}/>
-                <label className="withdrawal-reason"><span className="field-label-row"><span>{t.retirementContributionSource}</span><HelpTip text={t.retirementContributionSourceHelp}/></span><select value={retirementInput.retirementContributionSource||"income"} onChange={(event)=>updateRetirement("retirementContributionSource",event.target.value)}><option value="income">{t.contributionSources[0]}</option><option value="external">{t.contributionSources[1]}</option><option value="savings">{t.contributionSources[2]}</option></select></label>
-                <div className="mini-metric"><span>{t.monthlySavingsSpending}</span><strong>{retirement.availableMonthlySavings > 0 ? "+" : ""}{amount(retirement.availableMonthlySavings,currency)} {t.perMonth}</strong></div>
+                <div className="contribution-breakdown-label"><strong>{t.retirementContributionBreakdown}</strong></div>
+                <Field label={t.contributionFromIncome} value={retirementInput.retirementContributionFromIncome} prefix={currencyPrefix} onChange={(next)=>updateRetirement("retirementContributionFromIncome",next)}/>
+                <Field label={t.contributionFromEmployer} value={retirementInput.retirementContributionFromEmployer} prefix={currencyPrefix} onChange={(next)=>updateRetirement("retirementContributionFromEmployer",next)}/>
+                <Field label={t.contributionFromSavings} help={t.retirementContributionSourceHelp} value={retirementInput.retirementContributionFromSavings} prefix={currencyPrefix} onChange={(next)=>updateRetirement("retirementContributionFromSavings",next)}/>
+                <div className="mini-metric"><span>{t.totalMonthlyContribution}</span><strong>{amount(safeNumber(retirementInput.retirementContributionFromIncome)+safeNumber(retirementInput.retirementContributionFromEmployer)+safeNumber(retirementInput.retirementContributionFromSavings),currency)} {t.perMonth}</strong></div>
+                <div className="mini-metric"><span>{t.monthlySavings}</span><strong>{retirement.availableMonthlySavings > 0 ? "+" : ""}{amount(retirement.availableMonthlySavings,currency)} {t.perMonth}</strong></div>
                 <Field label={t.desiredRetirementSpending} value={retirementInput.monthlySpending} prefix={currencyPrefix} onChange={(next) => updateRetirement("monthlySpending", next)}/>
                 <Field label={t.monthlyIncome} help={t.monthlyIncomeHelp} value={retirementInput.monthlyIncome} prefix={currencyPrefix} onChange={(next) => updateRetirement("monthlyIncome", next)}/>
                 {ReturnAssumptions()}
@@ -866,19 +897,19 @@ export default function App() {
               </div>
             </div>
             <div className="retirement-results">
-              <div className={`plan-banner ${retirement.onTrack ? "on-track" : "off-track"}`}>
-                <span><Icon name={retirement.onTrack ? "check" : "retirement"}/></span>
-                <div><small>{t.postRetirement}</small><strong>{retirement.onTrack ? t.onTrack : t.needsWork}</strong></div>
+              <div className={`plan-banner ${retirement.retirementOnTrack ? "on-track" : "off-track"}`}>
+                <span><Icon name={retirement.retirementOnTrack ? "check" : "retirement"}/></span>
+                <div><small>{t.postRetirement}</small><strong>{retirement.retirementOnTrack ? t.onTrack : t.needsWork}</strong></div>
                 <b>{postOutcome(retirement)}</b>
               </div>
               <div className="stats-grid retirement-stats">
                 <Stat label={t.projectedFund} value={amount(retirement.projectedFund, currency, true)} tone="blue"/>
                 <Stat label={t.maximumMonthlySpending} value={amount(retirement.maximumMonthlySpending, currency, true)} tone="teal"/>
                 <Stat label={t.firstYearSpend} value={amount(retirement.firstYearSpend, currency, true)} tone="neutral"/>
-                <Stat label={`${t.remainingFundAtAge} ${retirement.planToAge}`} value={amount(retirement.endBalance, currency, true)} tone={retirement.onTrack ? "teal" : "red"}/>
+                <Stat label={`${t.remainingFundAtAge} ${retirement.planToAge}`} value={amount(retirement.endBalance, currency, true)} tone={retirement.retirementOnTrack ? "teal" : "red"}/>
               </div>
               {retirement.unfundedMoneyWithdrawals > 0 && <div className="saving-callout"><span>{t.unfundedExpense}</span><strong>{amount(retirement.unfundedMoneyWithdrawals, currency)}</strong></div>}
-              {baselineRetirement && <div className="card withdrawal-impact"><h3>{t.eventImpact}</h3><div><span>{t.withoutEvents}<strong>{amount(baselineRetirement.maximumMonthlySpending,currency)} {t.perMonth}</strong><small>{postOutcome(baselineRetirement)}</small></span><span>{t.withEvents}<strong>{amount(retirement.maximumMonthlySpending,currency)} {t.perMonth}</strong><small>{postOutcome(retirement)}</small></span></div></div>}
+              {moneyEvents.length > 0 && <div className="card withdrawal-impact"><h3>{t.eventImpact}</h3><div><span>{t.withoutEventImpact}<strong>{amount(retirement.plannedMonthlySpending,currency)} {t.perMonth}</strong></span><span>{t.withEventImpact}<strong>{amount(retirement.maximumMonthlySpending,currency)} {t.perMonth}</strong></span></div></div>}
               <div className="card chart-card"><div className="chart-head"><div><h3>{t.projection}</h3><p>{t.currentAge} {retirement.currentAge} → {t.planToAge} {retirement.planToAge}</p></div><StatusPill tone="blue">{t.retirementAge}: {retirement.retirementAge}</StatusPill></div><ProjectionChart data={retirement.timeline} retirementAge={retirement.retirementAge} currency={currency} events={moneyEvents}/>{moneyEvents.length > 0 && <div className="chart-events">{moneyEvents.map((moneyEvent)=>{const add=moneyEvent.type==="add";const reasons=add?t.addMoneyReasons:t.withdrawMoneyReasons;return <span key={moneyEvent.id}>{t.age} {moneyEvent.age}/{moneyEvent.month||1}: {reasons[Number(moneyEvent.reason)||0]} {add?"+":"−"}{amount(moneyEvent.amount,currency)}</span>;})}</div>}<p className="chart-note">{t.projectionNote}</p></div>
             </div>
           </div>
