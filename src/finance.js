@@ -277,6 +277,31 @@ function simulateRetirement(input, initialPools, includeTimeline = false, stopAg
     });
     if(includeTimeline)timeline.push({age:age+1,balance:Math.max(0,totalPools(pools)),phase:"retired"});
   }
+  yearlySummary.push({
+    age:planToAge,
+    terminal:true,
+    openingBalance:Math.max(0,totalPools(pools)),
+    monthlySpending:0,
+    annualSpending:0,
+    inflationRate:inflation*100,
+    cashReturn:0,
+    investmentReturn:0,
+    retirementReturn:0,
+    monthlyIncome:0,
+    annualIncome:0,
+    totalReturn:0,
+    moneyAdded:0,
+    moneyWithdrawn:0,
+    netMoneyEvents:0,
+    majorWithdrawals:0,
+    unfundedWithdrawals:0,
+    cashBalance:Math.max(0,pools.cash),
+    investmentBalance:Math.max(0,pools.investments),
+    retirementBalance:Math.max(0,pools.retirement),
+    endingBalance:Math.max(0,totalPools(pools)),
+    accessibleBalance:accessibleTotal(pools,planToAge>=retirementAccessAge),
+    lockedBalance:planToAge>=retirementAccessAge?0:pools.retirement,
+  });
   return {
     pools,endBalance:Math.max(0,totalPools(pools)),ranOut,lastsUntil,timeline,
     firstYearSpend:firstMonthSpend*12,firstYearIncome:firstMonthIncome*12,yearlySummary,moneyEventResults,
