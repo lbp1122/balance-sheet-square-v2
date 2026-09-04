@@ -186,6 +186,9 @@ assert.ok(consistencyBase.maximumMonthlySpending > 0, "maximum sustainable spend
 const atMaximum = calculateRetirement({ ...consistencyInput, monthlySpending: consistencyBase.maximumMonthlySpending });
 assert.equal(atMaximum.onTrack, true, "maximum sustainable spending should survive through the selected final age");
 assert.equal(atMaximum.lastsUntil, 100, "maximum sustainable spending should last through age 100");
+assert.equal(consistencyBase.yearlySummary.at(-1).age, 100, "yearly summary should include the selected final age");
+assert.equal(consistencyBase.yearlySummary.at(-1).terminal, true, "the selected final age should be shown as the terminal balance row");
+assert.equal(consistencyBase.yearlySummary.at(-2).age, 99, "the final full spending year should remain age 99 when planning through age 100");
 
 
 
