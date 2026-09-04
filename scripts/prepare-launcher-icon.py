@@ -7,8 +7,12 @@ ROOT = Path(__file__).resolve().parents[1]
 PUBLIC = ROOT / "public"
 ANDROID = ROOT / "android-app" / "app" / "src" / "main" / "res" / "drawable-nodpi"
 CANDIDATES = [
+    # The JPG is the user-approved My Wealth Square artwork.
+    # Use it as the single visual source, then crop away its presentation background.
+    PUBLIC / "app-icon-512.jpg",
+    PUBLIC / "app-icon-192.jpg",
     PUBLIC / "app-icon-512.png",
-    ANDROID / "app_icon_v2.png",
+    ANDROID / "app_icon_v2.jpg",
     PUBLIC / "app-icon-1024.png",
 ]
 
@@ -39,7 +43,7 @@ image = image.crop(bbox)
 
 # Make a square transparent canvas with only a very small safety margin.
 side = max(image.size)
-pad = max(2, round(side * 0.012))
+pad = 0
 canvas = Image.new("RGBA", (side + pad * 2, side + pad * 2), (0, 0, 0, 0))
 canvas.alpha_composite(
     image,
