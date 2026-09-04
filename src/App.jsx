@@ -933,7 +933,7 @@ export default function App() {
             <Stat label={t.runway} value={`${balance.runway.toFixed(1)}`} note={`${t.months} · ${runwayComment}`} tone={balance.runway >= 12 ? "teal" : balance.runway >= 6 ? "gold" : "red"}/>
           </div>
           <div className="report-retirement-shell">
-            <div className="report-retirement"><span>{t.postRetirement}</span><strong>{retirement.onTrack ? t.onTrack : t.needsWork}</strong><b>{t.earliestRetirementAge}: {retirement.earliestRetirementAge ?? "—"}<br/>{t.projectedFund}: {amount(retirement.projectedFund, currency, true)}</b></div>
+            <div className="report-retirement"><span>{t.postRetirement}</span><strong>{retirement.onTrack ? t.onTrack : t.needsWork}</strong><b>{t.earliestRetirementAge}: {retirement.earliestRetirementAge ?? "—"}<br/>{t.projectedFund}: {amount(retirement.projectedFund, currency, true)}<br/>{t.requiredMonthlySavings}: {amount(retirement.monthlySavingNeeded, currency)} {t.perMonth}</b></div>
           </div>
           <section className="quarterly-progress">
             <div className="quarterly-progress-head">

@@ -455,7 +455,7 @@ function createPreRetirementSummaryCanvases({ retirement, currency, language, t,
     drawCards(context, [
       { label: t.targetRetirementSum, value: retirement.requiredFund, always: true, color: colors.gold, format: (v) => amount(v,currency) },
       { label: t.projectedFund, value: retirement.projectedFund, always: true, color: colors.blue, format: (v) => amount(v,currency) },
-      { label: t.requiredMonthlySavings, value: retirement.monthlySavingNeeded, color: retirement.monthlySavingShortfall > 0 ? colors.red : colors.teal, format: (v) => amount(v,currency) },
+      { label: t.requiredMonthlySavings, value: retirement.monthlySavingNeeded, always: true, color: retirement.monthlySavingShortfall > 0 ? colors.red : colors.teal, format: (v) => amount(v,currency) },
     ], colors, width, 202);
 
     const headerY = 332;
