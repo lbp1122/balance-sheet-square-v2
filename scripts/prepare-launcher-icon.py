@@ -54,6 +54,6 @@ for size in (192, 512):
     output.save(PUBLIC / f"app-icon-{size}.png")
 
 canvas.resize((192, 192), Image.Resampling.LANCZOS).save(PUBLIC / "apple-touch-icon.png")
-canvas.resize((512, 512), Image.Resampling.LANCZOS).save(ANDROID / "app_icon_v2.png")
+canvas.resize((512, 512), Image.Resampling.LANCZOS).save(ANDROID / "app_icon_full.png")
 
 print(f"Prepared full-size My Wealth Square icon from {SOURCE.name}: {bbox}")
