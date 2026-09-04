@@ -560,13 +560,13 @@ export default function App() {
         });
 
         setActionStatus(t.exporting);
-        const { pdf } = await createReportPdf({ profile, retirement, currency, language, t, edition });
+        const { pdf } = await createReportPdf({ profile, calculatedAge, values, balance, retirement, retirementInput, currency, language, t, edition, quarterlyHistory });
         const base64 = await blobToBase64(pdf);
         window.AndroidBridge.writePdf(base64);
         setActionStatus(t.pdfReady);
       } else {
         setActionStatus(t.exporting);
-        const { pdf, filename } = await createReportPdf({ profile, retirement, currency, language, t, edition });
+        const { pdf, filename } = await createReportPdf({ profile, calculatedAge, values, balance, retirement, retirementInput, currency, language, t, edition, quarterlyHistory });
         if (window.AndroidBridge?.sharePdf || window.AndroidBridge?.savePdf) {
           const base64 = await blobToBase64(pdf);
           if (shouldShare && window.AndroidBridge.sharePdf) window.AndroidBridge.sharePdf(base64, filename);
@@ -809,7 +809,7 @@ export default function App() {
                 <Field label={t.preRetirementMonthlyExpenses} value={retirementInput.preRetirementExpenses} prefix={currencyPrefix} onChange={(next)=>updateRetirement("preRetirementExpenses",next)}/>
                 <Field label={t.monthlyContribution} value={retirementInput.monthlyContribution} prefix={currencyPrefix} onChange={(next)=>updateRetirement("monthlyContribution",next)}/>
                 <label className="withdrawal-reason"><span className="field-label-row"><span>{t.retirementContributionSource}</span><HelpTip text={t.retirementContributionSourceHelp}/></span><select value={retirementInput.retirementContributionSource||"income"} onChange={(event)=>updateRetirement("retirementContributionSource",event.target.value)}><option value="income">{t.contributionSources[0]}</option><option value="external">{t.contributionSources[1]}</option><option value="savings">{t.contributionSources[2]}</option></select></label>
-                <div className="mini-metric"><span>{t.availableToSave}</span><strong>{amount(retirement.availableMonthlySavings,currency)} {t.perMonth}</strong></div>
+                <div className="mini-metric"><span>{t.monthlySavingsSpending}</span><strong>{retirement.availableMonthlySavings > 0 ? "+" : ""}{amount(retirement.availableMonthlySavings,currency)} {t.perMonth}</strong></div>
                 <Field label={t.desiredRetirementSpending} value={retirementInput.monthlySpending} prefix={currencyPrefix} onChange={(next) => updateRetirement("monthlySpending", next)}/>
                 <Field label={t.monthlyIncome} help={t.monthlyIncomeHelp} value={retirementInput.monthlyIncome} prefix={currencyPrefix} onChange={(next) => updateRetirement("monthlyIncome", next)}/>
                 {ReturnAssumptions()}
@@ -837,6 +837,7 @@ export default function App() {
                 <div className="card bridge-card"><div><Icon name="lock"/><span><strong>{t.bridgePeriod}</strong><small>{t.bridgePeriodHelp}</small></span></div><div><span>{t.projectedAccessibleFund}<strong>{amount(retirement.projectedAccessibleFund, currency)}</strong></span><span>{t.projectedLockedFund}<strong>{amount(retirement.projectedLockedFund, currency)}</strong></span></div></div>
               )}
               {retirement.unfundedMoneyWithdrawals > 0 && <div className="saving-callout"><span>{t.unfundedExpense}</span><strong>{amount(retirement.unfundedMoneyWithdrawals, currency)}</strong></div>}
+              {retirement.unfundedRetirementContribution > 0 && <div className="saving-callout"><span>{t.monthlyContribution}</span><strong>{t.needsWork}: {amount(retirement.unfundedRetirementContribution, currency)}</strong></div>}
               <div className="card target-table-card">
                 <div className="chart-head"><div><h3>{t.yearlyTargets}</h3><p>{t.yearlyTargetsHint}</p></div>{isFree && <StatusPill tone="blue">5 {t.years || "years"}</StatusPill>}</div>
                 <div className="target-table">

@@ -91,16 +91,21 @@ export function blobToBase64(blob) {
 }
 
 
+function reportNumber(value) {
+  const number = Number(String(value ?? "").replace(/,/g, ""));
+  return Number.isFinite(number) ? number : 0;
+}
+
 function nonZero(value) {
-  return Math.abs(safeNumber(value)) > 0.005;
+  return Math.abs(reportNumber(value)) > 0.005;
 }
 
 function blankAmount(value, currency, compact = true) {
-  return nonZero(value) ? amount(value, currency, compact) : "";
+  return nonZero(value) ? amount(reportNumber(value), currency, compact) : "";
 }
 
 function signedAmount(value, currency, compact = true) {
-  const number = safeNumber(value);
+  const number = reportNumber(value);
   if (!nonZero(number)) return "";
   if (number > 0) return `+${amount(number, currency, compact)}`;
   return amount(number, currency, compact);
@@ -221,6 +226,180 @@ function drawDynamicTable(context, {
     });
   });
   context.textAlign = "left";
+}
+
+function createBalanceSheetSquareCanvas({ profile = {}, calculatedAge = null, values = {}, balance, currency, language, t, colors, reportTitle }) {
+  const width = 1240;
+  const height = 1754;
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext("2d");
+  const locale = language === "ms" ? "ms-MY" : language === "zh" ? "zh-CN" : "en-MY";
+  const dateText = `${t.asAt} ${new Date().toLocaleDateString(language === "en" ? "en-GB" : locale)}`;
+
+  context.fillStyle = colors.paper;
+  context.fillRect(0, 0, width, height);
+  context.fillStyle = colors.gold;
+  context.fillRect(0, 0, 16, height);
+  context.fillStyle = colors.navy;
+  context.fillRect(0, 0, width, 220);
+
+  context.fillStyle = "#ffffff";
+  context.font = '900 42px system-ui, "Noto Sans", sans-serif';
+  context.fillText(reportTitle, 54, 68);
+  context.font = '950 52px system-ui, "Noto Sans", sans-serif';
+  context.fillText(t.brand, 54, 132);
+  context.fillStyle = "#b9c9e8";
+  context.font = '700 19px system-ui, "Noto Sans", sans-serif';
+  context.fillText(calculatedAge === null ? dateText : `${t.age}: ${calculatedAge}  ·  ${dateText}`, 54, 178);
+  context.textAlign = "right";
+  context.fillStyle = "#ffffff";
+  context.font = '850 21px system-ui, "Noto Sans", sans-serif';
+  context.fillText("1", width - 54, 106);
+  context.textAlign = "left";
+
+  const cards = [
+    [t.totalAssets, balance.assets, colors.teal],
+    [t.liabilities, balance.liabilities, colors.red],
+    [t.netWorth, balance.equity, balance.equity >= 0 ? colors.blue : colors.red],
+  ];
+  cards.forEach(([label,value,color],index)=>{
+    const x=54+index*386;
+    context.fillStyle="#ffffff";
+    context.fillRect(x,252,356,112);
+    context.fillStyle=colors.muted;
+    context.font='850 17px system-ui, "Noto Sans", sans-serif';
+    context.fillText(String(label).toUpperCase(),x+20,286);
+    context.fillStyle=color;
+    context.font='900 31px system-ui, "Noto Sans", sans-serif';
+    context.fillText(amount(value,currency),x+20,332);
+  });
+
+  const squareSize=860;
+  const squareX=(width-squareSize)/2;
+  const squareY=410;
+  const half=squareSize/2;
+  const totalBarH=86;
+  const mainH=squareSize-totalBarH-6;
+  const mainBottom=squareY+mainH;
+  const liabilityRatio=balance.assets>0 ? Math.max(0,Math.min(1,balance.liabilities/balance.assets)) : (balance.liabilities>0?1:0);
+  const dividerY=squareY+mainH*liabilityRatio;
+  const rightX=squareX+half+3;
+
+  context.fillStyle=colors.navy;
+  context.fillRect(squareX-8,squareY-8,squareSize+16,squareSize+16);
+  context.fillStyle="#dff8f3";
+  context.fillRect(squareX,squareY,half-3,mainH);
+  context.fillStyle="#ffe0dc";
+  context.fillRect(rightX,squareY,half-3,Math.max(0,dividerY-squareY));
+  context.fillStyle="#0e6d68";
+  context.fillRect(rightX,dividerY,half-3,Math.max(0,mainBottom-dividerY));
+  context.fillStyle=colors.navy;
+  context.fillRect(squareX+half-3,squareY,6,squareSize);
+  context.fillRect(rightX,Math.max(squareY,dividerY-3),half-3,6);
+  context.fillRect(squareX,mainBottom,squareSize,6);
+
+  context.fillStyle=colors.navy;
+  context.font='900 20px system-ui, "Noto Sans", sans-serif';
+  context.fillText(t.assetsPage.toUpperCase(),squareX+24,squareY+42);
+  context.textAlign="right";
+  context.font='900 35px system-ui, "Noto Sans", sans-serif';
+  context.fillText(amount(balance.assets,currency),squareX+half-24,squareY+44);
+  context.textAlign="left";
+
+  assetKeys.forEach((key,index)=>{
+    const y=squareY+118+index*78;
+    context.strokeStyle="rgba(11,31,58,.13)";
+    context.beginPath();
+    context.moveTo(squareX+24,y+25);
+    context.lineTo(squareX+half-24,y+25);
+    context.stroke();
+    context.fillStyle=colors.muted;
+    context.font='700 18px system-ui, "Noto Sans", sans-serif';
+    wrapText(context,t[key],squareX+24,y,218,20,2);
+    context.fillStyle=colors.navy;
+    context.font='850 19px system-ui, "Noto Sans", sans-serif';
+    context.textAlign="right";
+    context.fillText(amount(safeNumber(values[key]),currency),squareX+half-24,y);
+    context.textAlign="left";
+  });
+
+  context.fillStyle="rgba(255,255,255,.94)";
+  context.fillRect(rightX+20,squareY+20,half-46,100);
+  context.fillStyle=colors.red;
+  context.font='900 19px system-ui, "Noto Sans", sans-serif';
+  context.fillText(t.liabilities.toUpperCase(),rightX+38,squareY+55);
+  context.fillStyle=colors.navy;
+  context.font='900 28px system-ui, "Noto Sans", sans-serif';
+  context.textAlign="right";
+  context.fillText(amount(balance.liabilities,currency),squareX+squareSize-26,squareY+58);
+  context.textAlign="left";
+  context.fillStyle=colors.red;
+  context.font='800 15px system-ui, "Noto Sans", sans-serif';
+  context.fillText(`${balance.debtAsset.toFixed(1)}%`,rightX+38,squareY+91);
+
+  const equityCenterY=dividerY+Math.max(0,(mainBottom-dividerY)/2);
+  context.fillStyle="#ffffff";
+  context.textAlign="center";
+  context.font='900 19px system-ui, "Noto Sans", sans-serif';
+  context.fillText(t.equity.toUpperCase(),rightX+(half-3)/2,equityCenterY-38);
+  context.font='900 36px system-ui, "Noto Sans", sans-serif';
+  context.fillText(amount(balance.equity,currency),rightX+(half-3)/2,equityCenterY+10);
+  context.font='800 17px system-ui, "Noto Sans", sans-serif';
+  context.fillText(`${balance.equityRatio.toFixed(1)}%`,rightX+(half-3)/2,equityCenterY+42);
+  context.textAlign="left";
+
+  const totalY=mainBottom+6;
+  context.fillStyle="#edf3fb";
+  context.fillRect(squareX,totalY,half-3,totalBarH);
+  context.fillRect(rightX,totalY,half-3,totalBarH);
+  context.fillStyle=colors.navy;
+  context.textAlign="center";
+  context.font='900 17px system-ui, "Noto Sans", sans-serif';
+  context.fillText(`${t.totalAssets} = ${amount(balance.assets,currency,true)}`,squareX+half/2,totalY+51);
+  context.fillText(`${t.totalFunding} = ${amount(balance.liabilities+balance.equity,currency,true)}`,rightX+(half-3)/2,totalY+51);
+  context.textAlign="left";
+
+  const detailsY=squareY+squareSize+32;
+  context.fillStyle="#ffffff";
+  context.fillRect(54,detailsY,1132,176);
+  context.fillStyle=colors.navy;
+  context.font='900 17px system-ui, "Noto Sans", sans-serif';
+  context.fillText(t.liabilitiesDetails.toUpperCase(),78,detailsY+34);
+  debtKeys.forEach((key,index)=>{
+    const col=index%2;
+    const row=Math.floor(index/2);
+    const x=78+col*540;
+    const y=detailsY+78+row*48;
+    context.fillStyle=colors.muted;
+    context.font='700 16px system-ui, "Noto Sans", sans-serif';
+    context.fillText(t[key],x,y);
+    context.fillStyle=colors.navy;
+    context.font='850 16px system-ui, "Noto Sans", sans-serif';
+    context.textAlign="right";
+    context.fillText(amount(safeNumber(values[key]),currency),x+458,y);
+    context.textAlign="left";
+  });
+
+  const ratioY=detailsY+202;
+  const ratios=[
+    [t.debtAsset,`${balance.debtAsset.toFixed(1)}%`],
+    [t.equityRatio,`${balance.equityRatio.toFixed(1)}%`],
+    [t.runway,`${balance.runway.toFixed(1)} ${t.months}`],
+  ];
+  ratios.forEach(([label,value],index)=>{
+    const x=54+index*386;
+    context.fillStyle="#ffffff";
+    context.fillRect(x,ratioY,356,106);
+    context.fillStyle=colors.muted;
+    context.font='850 15px system-ui, "Noto Sans", sans-serif';
+    context.fillText(String(label).toUpperCase(),x+18,ratioY+31);
+    context.fillStyle=colors.navy;
+    context.font='900 28px system-ui, "Noto Sans", sans-serif';
+    context.fillText(String(value),x+18,ratioY+72);
+  });
+  return canvas;
 }
 
 function createPreRetirementSummaryCanvases({ retirement, currency, language, t, isFree, colors, reportTitle, startPage = 1 }) {
@@ -381,7 +560,7 @@ function createYearlySummaryCanvases({ retirement, currency, language, t, isFree
 
 
 
-export async function createReportPdf({ profile = {}, retirement, currency, language, t, edition = "paid" }) {
+export async function createReportPdf({ profile = {}, calculatedAge = null, values = {}, balance = null, retirement, retirementInput = {}, currency, language, t, edition = "paid", quarterlyHistory = [] }) {
   const isFree = edition === "free";
   const colors = {
     navy: "#0b1f3a",
@@ -396,6 +575,18 @@ export async function createReportPdf({ profile = {}, retirement, currency, lang
     ? `${profile.name}: ${t.retirementSimulatorReport}`
     : t.retirementSimulatorReport;
 
+  const balancePages = balance ? [createBalanceSheetSquareCanvas({
+    profile,
+    calculatedAge,
+    values,
+    balance,
+    currency,
+    language,
+    t,
+    colors,
+    reportTitle,
+  })] : [];
+  const firstRetirementPage = 1 + balancePages.length;
   const prePages = createPreRetirementSummaryCanvases({
     retirement,
     currency,
@@ -404,7 +595,7 @@ export async function createReportPdf({ profile = {}, retirement, currency, lang
     isFree,
     colors,
     reportTitle,
-    startPage: 1,
+    startPage: firstRetirementPage,
   });
   const postPages = createYearlySummaryCanvases({
     retirement,
@@ -414,11 +605,11 @@ export async function createReportPdf({ profile = {}, retirement, currency, lang
     isFree,
     colors,
     reportTitle,
-    startPage: 1 + prePages.length,
+    startPage: firstRetirementPage + prePages.length,
   });
 
   const images = [];
-  for (const pageCanvas of [...prePages, ...postPages]) {
+  for (const pageCanvas of [...balancePages, ...prePages, ...postPages]) {
     const jpegBlob = await canvasBlob(pageCanvas, "image/jpeg", 0.92);
     images.push({
       bytes: new Uint8Array(await jpegBlob.arrayBuffer()),

@@ -187,4 +187,48 @@ const atMaximum = calculateRetirement({ ...consistencyInput, monthlySpending: co
 assert.equal(atMaximum.onTrack, true, "maximum sustainable spending should survive through the selected final age");
 assert.equal(atMaximum.lastsUntil, 100, "maximum sustainable spending should last through age 100");
 
+
+
+const signedAvailable = calculateRetirement(plan({
+  currentAge: 53, retirementAge: 54, retirementAccessAge: 55, planToAge: 56,
+  cashSavings: 100000, investmentSavings: 0, retirementSavings: 100000,
+  preRetirementIncome: 0, preRetirementExpenses: 5000,
+  monthlyContribution: 0, retirementContributionSource: "income",
+  cashReturn: 0, investmentReturn: 0, retirementReturn: 0, inflation: 0,
+  monthlySpending: 0, monthlyIncome: 0, moneyEvents: [], majorWithdrawals: [],
+}));
+assert.equal(signedAvailable.availableMonthlySavings, -5000);
+
+const existingSavingsTransfer = calculateRetirement(plan({
+  currentAge: 40, retirementAge: 41, retirementAccessAge: 55, planToAge: 42,
+  cashSavings: 200000, investmentSavings: 0, retirementSavings: 100000,
+  preRetirementIncome: 0, preRetirementExpenses: 5000,
+  monthlyContribution: 8000, retirementContributionSource: "savings",
+  cashReturn: 0, investmentReturn: 0, retirementReturn: 0, inflation: 0,
+  monthlySpending: 0, monthlyIncome: 0, moneyEvents: [], majorWithdrawals: [],
+}));
+assert.equal(existingSavingsTransfer.projectedFund, 240000, "existing-savings contribution must be a transfer");
+assert.equal(existingSavingsTransfer.projectedPools.retirement, 196000);
+assert.equal(existingSavingsTransfer.projectedPools.cash, 44000);
+
+const retirementIncomeSurplus = calculateRetirement(plan({
+  currentAge: 60, retirementAge: 60, retirementAccessAge: 55, planToAge: 61,
+  cashSavings: 100000, investmentSavings: 0, retirementSavings: 0,
+  monthlySavings: 0, monthlyContribution: 0,
+  cashReturn: 0, investmentReturn: 0, retirementReturn: 0, inflation: 0,
+  monthlySpending: 3000, monthlyIncome: 5000, moneyEvents: [], majorWithdrawals: [],
+}));
+assert.equal(retirementIncomeSurplus.endBalance, 124000, "retirement income surplus must remain invested");
+
+const unfundedContributionPlan = calculateRetirement(plan({
+  currentAge: 40, retirementAge: 41, retirementAccessAge: 55, planToAge: 42,
+  cashSavings: 1000, investmentSavings: 0, retirementSavings: 500000,
+  preRetirementIncome: 0, preRetirementExpenses: 0,
+  monthlyContribution: 8000, retirementContributionSource: "savings",
+  cashReturn: 0, investmentReturn: 0, retirementReturn: 0, inflation: 0,
+  monthlySpending: 0, monthlyIncome: 0, moneyEvents: [], majorWithdrawals: [],
+}));
+assert.ok(unfundedContributionPlan.unfundedRetirementContribution > 0);
+assert.equal(unfundedContributionPlan.onTrack, false);
+
 console.log("Retirement calculation tests passed.");

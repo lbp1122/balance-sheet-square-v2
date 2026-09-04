@@ -256,8 +256,13 @@ function simulateRetirement(input, initialPools, includeTimeline = false, stopAg
       moneyEventResults.push(...ev.results); annualAdded+=ev.added;annualWithdrawn+=ev.withdrawn;annualUnfundedWithdrawals+=ev.unfunded;unfundedMoneyWithdrawals+=ev.unfunded;
       if(ev.unfunded>0.01&&!ranOut){ranOut=true;lastsUntil=Math.round((age+month/12)*10)/10;}
       annualSpending+=monthlySpend;annualIncome+=monthlyIncome;
-      const sf=withdrawLowestReturnFirst(pools,rates,Math.max(0,monthlySpend-monthlyIncome),accessible);
-      if(sf>0.01&&!ranOut){ranOut=true;lastsUntil=Math.round((age+month/12)*10)/10;}
+      const netMonthlyCashFlow = monthlyIncome - monthlySpend;
+      if (netMonthlyCashFlow >= 0) {
+        pools.investments += netMonthlyCashFlow;
+      } else {
+        const sf=withdrawLowestReturnFirst(pools,rates,-netMonthlyCashFlow,accessible);
+        if(sf>0.01&&!ranOut){ranOut=true;lastsUntil=Math.round((age+month/12)*10)/10;}
+      }
       monthlySpend*=1+monthlyInflation;monthlyIncome*=1+monthlyInflation;
     }
     yearlySummary.push({
@@ -399,7 +404,7 @@ export function calculateRetirement(input) {
   const required=requiredAtRetirement(input,projectedPools);
   const unfundedMoneyWithdrawals=preRetirement.unfundedMoneyWithdrawals+retired.unfundedMoneyWithdrawals;
   const monthlySavingNeeded=requiredMonthlySavings(input);
-  const availableMonthlySavings=Math.max(0,preRetirement.naturalMonthlySavings);
+  const availableMonthlySavings=preRetirement.naturalMonthlySavings;
   const usesCashFlowInputs = input.preRetirementIncome !== undefined || input.preRetirementExpenses !== undefined;
   const monthlySavingShortfall=usesCashFlowInputs ? monthlySavingNeeded : Math.max(0,monthlySavingNeeded-availableMonthlySavings);
   const maximumMonthlySpending=calculateMaxMonthlySpending(input),earliestRetirementAge=earliestFinancialIndependenceAge(input);
@@ -413,12 +418,13 @@ export function calculateRetirement(input) {
     currentAge,retirementAge,retirementAccessAge,planToAge,projectedFund,projectedPools,projectedAccessibleFund,projectedLockedFund,
     requiredFund:required.total,requiredAccessibleFund:required.accessible,requiredLockedFund:required.locked,gap:projectedFund-required.total,
     firstYearSpend:retired.firstYearSpend,lastsUntil:retired.lastsUntil,
-    onTrack:!retired.ranOut&&unfundedMoneyWithdrawals<=0.01&&preRetirement.unfundedCashFlow<=0.01,
+    onTrack:!retired.ranOut&&unfundedMoneyWithdrawals<=0.01&&preRetirement.unfundedCashFlow<=0.01&&preRetirement.unfundedRetirementContribution<=0.01,
     monthlySavingNeeded,monthlySavingShortfall,availableMonthlySavings,earliestRetirementAge,financiallyIndependentNow:earliestRetirementAge===currentAge,
     maximumMonthlySpending,timeline,endBalance:retired.endBalance,preRetirementYearlySummary,yearlySummary:retired.yearlySummary,
     moneyEventResults:[...preRetirement.moneyEventResults,...retired.moneyEventResults],
     withdrawalResults:[...preRetirement.withdrawalResults,...retired.withdrawalResults],
     unfundedMoneyWithdrawals,unfundedMajorWithdrawals:unfundedMoneyWithdrawals,unfundedPreRetirementCashFlow:preRetirement.unfundedCashFlow,
+    unfundedRetirementContribution:preRetirement.unfundedRetirementContribution,
     scheduledMoneyEvents,scheduledMajorWithdrawals:scheduledMoneyEvents.filter((e)=>e.type==="withdraw"),
     totalMoneyAdded,totalMoneyWithdrawn,totalMajorWithdrawals:totalMoneyWithdrawn,
   };
