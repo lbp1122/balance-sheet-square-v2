@@ -32,3 +32,5 @@ gradle -p android-app bundleRelease
 ```
 
 The release bundle produced by this project is unsigned. Configure Play App Signing before creating the final bundle for Google Play. Do not commit a keystore, `keystore.properties`, or any signing password.
+
+Build retry note: v2.3.11 release validation.
