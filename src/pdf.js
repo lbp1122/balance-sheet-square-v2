@@ -102,7 +102,7 @@ function blankAmount(value, currency, compact = true) {
 function signedAmount(value, currency, compact = true) {
   const number = safeNumber(value);
   if (!nonZero(number)) return "";
-  if (number > 0) return \`+\${amount(number, currency, compact)}\`;
+  if (number > 0) return `+${amount(number, currency, compact)}`;
   return amount(number, currency, compact);
 }
 
@@ -111,8 +111,8 @@ function moneyEventCell(row, currency) {
   const withdrawn = safeNumber(row.moneyWithdrawn);
   if (!nonZero(added) && !nonZero(withdrawn)) return "";
   return [
-    nonZero(added) ? \`+\${amount(added, currency, true)}\` : "",
-    nonZero(withdrawn) ? \`−\${amount(withdrawn, currency, true)}\` : "",
+    nonZero(added) ? `+${amount(added, currency, true)}` : "",
+    nonZero(withdrawn) ? `−${amount(withdrawn, currency, true)}` : "",
   ].filter(Boolean).join(" / ");
 }
 
@@ -145,7 +145,7 @@ function drawSectionHeader(context, {
   context.fillText(section, 54, 108);
   context.fillStyle = "#b9c9e8";
   context.font = '700 20px system-ui, "Noto Sans", sans-serif';
-  context.fillText(\`\${hint}  ·  \${dateText}\`, 54, 145);
+  context.fillText(`${hint}  ·  ${dateText}`, 54, 145);
   context.textAlign = "right";
   context.fillStyle = "#ffffff";
   context.font = '850 21px system-ui, "Noto Sans", sans-serif';
@@ -232,7 +232,7 @@ function createPreRetirementSummaryCanvases({ retirement, currency, language, t,
   for (let index = 0; index < rows.length; index += rowsPerPage) chunks.push(rows.slice(index, index + rowsPerPage));
   if (!chunks.length) chunks.push([]);
   const locale = language === "ms" ? "ms-MY" : language === "zh" ? "zh-CN" : "en-MY";
-  const dateText = \`\${t.asAt} \${new Date().toLocaleDateString(language === "en" ? "en-GB" : locale)}\`;
+  const dateText = `${t.asAt} ${new Date().toLocaleDateString(language === "en" ? "en-GB" : locale)}`;
   const allRows = rows;
 
   const definitions = [
@@ -309,7 +309,7 @@ function createYearlySummaryCanvases({ retirement, currency, language, t, isFree
   for (let index = 0; index < rows.length; index += rowsPerPage) chunks.push(rows.slice(index, index + rowsPerPage));
   if (!chunks.length) chunks.push([]);
   const locale = language === "ms" ? "ms-MY" : language === "zh" ? "zh-CN" : "en-MY";
-  const dateText = \`\${t.asAt} \${new Date().toLocaleDateString(language === "en" ? "en-GB" : locale)}\`;
+  const dateText = `${t.asAt} ${new Date().toLocaleDateString(language === "en" ? "en-GB" : locale)}`;
   const allRows = rows;
 
   const definitions = [
@@ -317,7 +317,7 @@ function createYearlySummaryCanvases({ retirement, currency, language, t, isFree
     { label: t.openingBalance, always: true, present: (row) => nonZero(row.openingBalance), value: (row,c) => blankAmount(row.openingBalance,c) },
     { label: t.monthlySavingsSpending, always: true, present: () => true, value: (row,c) => signedAmount(safeNumber(row.monthlyIncome)-safeNumber(row.monthlySpending),c) },
     { label: t.yearlySavingsSpending, always: true, present: () => true, value: (row,c) => signedAmount(safeNumber(row.annualIncome)-safeNumber(row.annualSpending),c) },
-    { label: t.inflation, present: (row) => nonZero(row.inflationRate), value: (row) => nonZero(row.inflationRate) ? \`\${safeNumber(row.inflationRate).toFixed(2)}%\` : "" },
+    { label: t.inflation, present: (row) => nonZero(row.inflationRate), value: (row) => nonZero(row.inflationRate) ? `${safeNumber(row.inflationRate).toFixed(2)}%` : "" },
     { label: t.cashReturn, present: (row) => nonZero(row.cashReturn), value: (row,c) => blankAmount(row.cashReturn,c) },
     { label: t.investmentReturn, present: (row) => nonZero(row.investmentReturn), value: (row,c) => blankAmount(row.investmentReturn,c) },
     { label: t.retirementReturn, present: (row) => nonZero(row.retirementReturn), value: (row,c) => blankAmount(row.retirementReturn,c) },
@@ -393,7 +393,7 @@ export async function createReportPdf({ profile = {}, retirement, currency, lang
     red: "#c34242",
   };
   const reportTitle = profile.name
-    ? \`\${profile.name}: \${t.retirementSimulatorReport}\`
+    ? `${profile.name}: ${t.retirementSimulatorReport}`
     : t.retirementSimulatorReport;
 
   const prePages = createPreRetirementSummaryCanvases({
@@ -430,6 +430,6 @@ export async function createReportPdf({ profile = {}, retirement, currency, lang
   const suffix = isFree ? "free" : "paid";
   return {
     pdf,
-    filename: \`retirement-simulator-\${suffix}-\${new Date().toISOString().slice(0,10)}.pdf\`,
+    filename: `retirement-simulator-${suffix}-${new Date().toISOString().slice(0,10)}.pdf`,
   };
 }
