@@ -54,7 +54,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
   backdrop-filter: blur(16px);
 }
 .brand-button { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 0; border: 0; background: transparent; color: white; cursor: pointer; font-weight: 850; letter-spacing: -.02em; white-space: nowrap; }
-.brand-button img { width: 48px; height: 48px; border-radius: 12px; box-shadow: 0 6px 14px rgba(0,0,0,.2); }
+.brand-button .brand-mark { width: 48px; height: 48px; flex: 0 0 auto; border-radius: 12px; box-shadow: 0 6px 14px rgba(0,0,0,.2); }
 .desktop-nav { display: flex; justify-content: center; min-width: 0; gap: 3px; }
 .desktop-nav button { min-height: 44px; padding: 8px 11px; display: flex; align-items: center; gap: 7px; border: 0; border-radius: 12px; color: #aebdd3; background: transparent; font-size: 14px; font-weight: 720; cursor: pointer; transition: .18s ease; }
 .desktop-nav button:hover { color: white; background: rgba(255,255,255,.07); }
@@ -386,7 +386,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .report-preview { min-height: 690px; padding: clamp(28px, 5vw, 58px); background: white; border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 25px 70px rgba(24,49,84,.12); }
 .report-preview-head { position: relative; padding: 0 90px 28px; display: flex; align-items: center; justify-content: center; gap: 18px; text-align: center; border-bottom: 5px solid var(--navy); }
 .report-preview-head > div { width: 100%; }
-.report-preview-head img { position: absolute; left: 0; width: 72px; height: 72px; border-radius: 18px; }
+.report-preview-head .brand-mark { position: absolute; left: 0; width: 72px; height: 72px; border-radius: 18px; }
 .report-preview-head span { color: var(--blue); font-size: 16px; font-weight: 850; }
 .report-preview-head h2 { margin: 1px 0 0; color: var(--navy); font-size: 40px; font-weight: 950; }
 .report-preview-head small { display: block; margin-top: 6px; color: var(--muted); line-height: 1.5; font-size: 16px; }
@@ -520,7 +520,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 @media (max-width: 620px) {
   body { font-size: 17px; }
   .app-header { padding-inline: 12px; }
-  .brand-button img { width: 46px; height: 46px; border-radius: 11px; }
+  .brand-button .brand-mark { width: 46px; height: 46px; border-radius: 11px; }
   .header-controls { gap: 5px; }
   .language-control button { padding-inline: 7px; }
   .currency-control select { padding-inline: 7px; }
@@ -594,7 +594,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
   .report-preview { min-height: auto; padding: 22px; }
   .report-preview-head { padding-left: 68px; padding-right: 68px; }
   .report-preview-head h2 { font-size: 28px; }
-  .report-preview-head img { width: 58px; height: 58px; }
+  .report-preview-head .brand-mark { width: 58px; height: 58px; }
   .report-summary .stat-card { min-height: 112px; }
   .report-summary .stat-card > strong { font-size: 26px; }
   .report-ratios { grid-template-columns: repeat(3, minmax(0,1fr)); }
