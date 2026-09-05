@@ -60,10 +60,49 @@ jobs:
         with:
           gradle-version: "8.11.1"
 
-      - name: Build direct Paid APK and Free-to-Paid AAB
+      - name: Restore and verify Google Play upload key
+        env:
+          ANDROID_UPLOAD_KEYSTORE_BASE64: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_BASE64 }}
+          ANDROID_UPLOAD_STORE_PASSWORD: ${{ secrets.ANDROID_UPLOAD_STORE_PASSWORD }}
+          ANDROID_UPLOAD_KEY_ALIAS: ${{ secrets.ANDROID_UPLOAD_KEY_ALIAS }}
+          ANDROID_UPLOAD_KEY_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "$ANDROID_UPLOAD_KEYSTORE_BASE64"
+          test -n "$ANDROID_UPLOAD_STORE_PASSWORD"
+          test -n "$ANDROID_UPLOAD_KEY_ALIAS"
+          test -n "$ANDROID_UPLOAD_KEY_PASSWORD"
+          printf '%s' "$ANDROID_UPLOAD_KEYSTORE_BASE64" | base64 --decode > android-app/upload-key.jks
+          KEY_SHA1=$(keytool -list -v \
+            -keystore android-app/upload-key.jks \
+            -alias "$ANDROID_UPLOAD_KEY_ALIAS" \
+            -storepass "$ANDROID_UPLOAD_STORE_PASSWORD" \
+            | sed -n 's/^[[:space:]]*SHA1: //p' | head -n 1)
+          echo "Upload key SHA-1: $KEY_SHA1"
+          test "$KEY_SHA1" = "85:06:DE:41:FB:D2:CD:1A:C9:AC:8C:70:5A:DB:97:56:86:CF:DD:92"
+
+      - name: Build direct Paid APK and signed Free-to-Paid AAB
+        env:
+          ANDROID_UPLOAD_KEYSTORE: ${{ github.workspace }}/android-app/upload-key.jks
+          ANDROID_UPLOAD_STORE_PASSWORD: ${{ secrets.ANDROID_UPLOAD_STORE_PASSWORD }}
+          ANDROID_UPLOAD_KEY_ALIAS: ${{ secrets.ANDROID_UPLOAD_KEY_ALIAS }}
+          ANDROID_UPLOAD_KEY_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEY_PASSWORD }}
         run: |
           gradle -p android-app assembleDebug -PdirectPaid=true
           gradle -p android-app bundleRelease
+
+      - name: Verify signed AAB certificate
+        run: |
+          set -euo pipefail
+          AAB="android-app/app/build/outputs/bundle/release/app-release.aab"
+          AAB_SHA1=$(keytool -printcert -jarfile "$AAB" \
+            | sed -n 's/^[[:space:]]*SHA1: //p' | head -n 1)
+          echo "Signed AAB SHA-1: $AAB_SHA1"
+          test "$AAB_SHA1" = "85:06:DE:41:FB:D2:CD:1A:C9:AC:8C:70:5A:DB:97:56:86:CF:DD:92"
+
+      - name: Remove temporary upload key
+        if: always()
+        run: rm -f android-app/upload-key.jks
 
       - name: Rename APK and bundle
         run: |
