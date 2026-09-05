@@ -24,6 +24,23 @@ function ageFromBirthDate(value) {
   return age >= 0 && age <= 120 ? age : null;
 }
 
+
+function BrandMark({ className = "" }) {
+  return (
+    <svg className={`brand-mark ${className}`.trim()} viewBox="0 0 108 108" aria-hidden="true">
+      <rect x="2" y="2" width="104" height="104" rx="24" fill="#246FFC"/>
+      <rect x="20" y="20" width="68" height="68" rx="11" fill="#FFE36B" stroke="#062B68" strokeWidth="4"/>
+      <path fill="#FFF0A0" d="M37 33H53V75H37C34.2 75 32 72.8 32 70V38C32 35.2 34.2 33 37 33Z"/>
+      <path fill="#45DCC9" d="M56 33H71C73.8 33 76 35.2 76 38V53H56Z"/>
+      <path fill="#1855D6" d="M56 56H76V70C76 72.8 73.8 75 71 75H56Z"/>
+      <path d="M38 31H70C74.4 31 78 34.6 78 39V69C78 73.4 74.4 77 70 77H38C33.6 77 30 73.4 30 69V39C30 34.6 33.6 31 38 31Z" fill="none" stroke="#062B68" strokeWidth="4" strokeLinejoin="round"/>
+      <path d="M54 31V77M54 54H78" fill="none" stroke="#062B68" strokeWidth="4"/>
+      <circle cx="44" cy="45" r="5" fill="#062B68"/>
+      <path d="M39 63H49" fill="none" stroke="#062B68" strokeWidth="4" strokeLinecap="round"/>
+    </svg>
+  );
+}
+
 function Icon({ name }) {
   const icons = {
     home: <><path d="M3 10.8 12 3l9 7.8"/><path d="M5.5 9.6V21h13V9.6"/><path d="M9.5 21v-6h5v6"/></>,
@@ -1059,7 +1076,7 @@ export default function App() {
       <PageHeader eyebrow="07" title={t.reportTitle} hint={t.reportHint} status={<StatusPill tone="teal"><Icon name="lock"/>{t.local}</StatusPill>}/>
       <div className="report-layout">
         <div className="report-preview">
-          <div className="report-preview-head"><img src="./app-icon-192.png" alt=""/><div><span>{t.brand}</span><h2>{profile.name ? `${profile.name} : ${t.wealthTitle}` : t.wealthTitle}</h2><small>{t.age}: ${calculatedAge ?? "—"} · ${t.professionLabel}: ${profile.profession || "—"}<br/>{t.asAt} ${new Date().toLocaleDateString(language === "en" ? "en-GB" : language === "ms" ? "ms-MY" : "zh-CN")}</small></div></div>
+          <div className="report-preview-head"><BrandMark/><div><span>{t.brand}</span><h2>{profile.name ? `${profile.name} : ${t.wealthTitle}` : t.wealthTitle}</h2><small>{t.age}: ${calculatedAge ?? "—"} · ${t.professionLabel}: ${profile.profession || "—"}<br/>{t.asAt} ${new Date().toLocaleDateString(language === "en" ? "en-GB" : language === "ms" ? "ms-MY" : "zh-CN")}</small></div></div>
           <div className="report-summary"><Stat label={t.totalAssets} value={amount(balance.assets, currency, true)} tone="teal"/><Stat label={t.liabilities} value={amount(balance.liabilities, currency, true)} tone={debtTone}/><Stat label={t.netWorth} value={amount(balance.equity, currency, true)} tone={balance.equity >= 0 ? "blue" : "red"}/></div>
           <div className="report-ratios">
             <Stat label={t.equity} value={amount(balance.equity, currency, true)} note={equityComment} tone={balance.equity >= 0 ? "teal" : "red"}/>
@@ -1105,7 +1122,7 @@ export default function App() {
     <div className="app-shell">
       <header className="app-header">
         <button className="brand-button" type="button" onClick={() => navigate("home")} aria-label={t.brand}>
-          <img src="./app-icon-192.png" alt=""/><span>{t.brand}</span>
+          <BrandMark/><span>{t.brand}</span>
         </button>
         <nav className="desktop-nav" aria-label="Primary navigation">
           {desktopNav.map(([target, label]) => <NavButton key={target} page={target} current={page} label={label} onNavigate={navigate}/>) }
