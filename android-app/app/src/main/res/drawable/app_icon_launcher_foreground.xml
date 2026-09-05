@@ -5,7 +5,13 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- Warm gold square frame -->
+    
+    <group
+        android:pivotX="54"
+        android:pivotY="54"
+        android:scaleX="0.84"
+        android:scaleY="0.84">
+<!-- Warm gold square frame -->
     <path
         android:fillColor="#FFE36B"
         android:strokeColor="#062B68"
@@ -62,4 +68,5 @@
         android:strokeWidth="4"
         android:strokeLineCap="round"
         android:pathData="M39,63 L49,63" />
+    </group>
 </vector>
