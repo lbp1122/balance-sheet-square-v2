@@ -3,6 +3,10 @@ plugins {
 }
 
 val directPaid = providers.gradleProperty("directPaid").orNull == "true"
+val uploadKeystorePath = System.getenv("ANDROID_UPLOAD_KEYSTORE")
+val uploadStorePassword = System.getenv("ANDROID_UPLOAD_STORE_PASSWORD")
+val uploadKeyAlias = System.getenv("ANDROID_UPLOAD_KEY_ALIAS")
+val uploadKeyPassword = System.getenv("ANDROID_UPLOAD_KEY_PASSWORD")
 
 android {
     namespace = "com.lbp.balancesheetsquare"
@@ -12,14 +16,23 @@ android {
         applicationId = "com.lbp.balancesheetsquare"
         minSdk = 24
         targetSdk = 36
-        versionCode = 34
-        versionName = "2.3.27"
+        versionCode = 35
+        versionName = "2.3.28"
         buildConfigField("boolean", "DIRECT_PAID", directPaid.toString())
         resValue("string", "app_name", "My Wealth")
     }
 
     buildFeatures {
         buildConfig = true
+    }
+
+    signingConfigs {
+        create("release") {
+            storeFile = file(uploadKeystorePath ?: "missing-upload-key.jks")
+            storePassword = uploadStorePassword
+            keyAlias = uploadKeyAlias
+            keyPassword = uploadKeyPassword
+        }
     }
 
     buildTypes {
@@ -29,6 +42,7 @@ android {
         }
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("release")
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
